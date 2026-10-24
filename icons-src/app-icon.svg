@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Vaultfolio brand icon: near-black vault square, subtle dial ring, blue "V" -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#10151d"/>
+      <stop offset="1" stop-color="#070a10"/>
+    </linearGradient>
+    <linearGradient id="vmark" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6ea8ff"/>
+      <stop offset="1" stop-color="#3f7de8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- macOS-style filled rounded square (no transparency; iOS-style squircle alpha) -->
+  <rect x="0" y="0" width="1024" height="1024" rx="224" fill="url(#bg)"/>
+
+  <!-- vault dial ring -->
+  <circle cx="512" cy="512" r="356" fill="none" stroke="#232b38" stroke-width="20"/>
+  <circle cx="512" cy="512" r="308" fill="none" stroke="#2b3546" stroke-width="10"/>
+
+  <!-- dial ticks -->
+  <g stroke="#3a4557" stroke-width="12" stroke-linecap="round">
+    <line x1="512" y1="172" x2="512" y2="216"/>
+    <line x1="512" y1="808" x2="512" y2="852"/>
+    <line x1="172" y1="512" x2="216" y2="512"/>
+    <line x1="808" y1="512" x2="852" y2="512"/>
+  </g>
+  <g stroke="#2f3949" stroke-width="10" stroke-linecap="round">
+    <line x1="289" y1="289" x2="319" y2="319"/>
+    <line x1="735" y1="289" x2="705" y2="319"/>
+    <line x1="289" y1="735" x2="319" y2="705"/>
+    <line x1="735" y1="735" x2="705" y2="705"/>
+  </g>
+
+  <!-- lock handle -->
+  <circle cx="512" cy="512" r="120" fill="none" stroke="#39445a" stroke-width="18"/>
+
+  <!-- blue "V" (brand) -->
+  <path d="M 320 320 L 438 320 L 512 626 L 586 320 L 704 320 L 577 716 L 447 716 Z"
+        fill="url(#vmark)" stroke="none"/>
+</svg>

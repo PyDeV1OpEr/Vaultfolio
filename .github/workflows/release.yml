@@ -1,0 +1,169 @@
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+name: Release desktop installers
+
+# Least privilege: jobs may publish to GitHub Releases and nothing else.
+# No third-party tokens; GITHUB_TOKEN is scoped per-run. Signing
+# credentials are optional secrets (see DESKTOP.md) — builds currently
+# produce unsigned installers.
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  # Canonical artifact names. README download links must match these
+  # exactly. Build steps copy native Tauri output to these names.
+  MAC_ARM64_ARTIFACT: Vaultfolio-macOS-arm64.dmg
+  MAC_X64_ARTIFACT: Vaultfolio-macOS-x64.dmg
+  WIN_X64_ARTIFACT: Vaultfolio-Windows-x64-setup.exe
+
+jobs:
+  quality-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Frontend checks
+        run: |
+          npm run typecheck
+          npm test
+          npm run build
+
+  create-draft:
+    needs: quality-gate
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create draft release
+        run: |
+          cat > release-notes.md <<'NOTES'
+          ## Download Vaultfolio
+
+          | Platform | File |
+          | --- | --- |
+          | macOS — Apple Silicon (M-series) | `Vaultfolio-macOS-arm64.dmg` |
+          | macOS — Intel | `Vaultfolio-macOS-x64.dmg` |
+          | Windows 10/11 — x64 | `Vaultfolio-Windows-x64-setup.exe` |
+
+          ### Install notes
+          - The macOS builds and the Windows build are currently **unsigned**:
+            - macOS first launch: right-click the app → **Open** (bypasses
+              Gatekeeper for this app without changing system security).
+            - Windows first launch: choose **More info → Run anyway** if
+              SmartScreen shows a warning.
+          - Demo mode works fully offline. Cloud sync requires the
+            maintainer's Supabase configuration.
+          - This release contains no telemetry and no embedded secrets beyond
+            public client configuration.
+          NOTES
+          gh release create "${GITHUB_REF_NAME}" \
+            --verify-tag \
+            --draft \
+            --title "Vaultfolio ${GITHUB_REF_NAME}" \
+            --notes-file release-notes.md
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  macos:
+    needs: create-draft
+    name: macOS installers (arm64 + x64)
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            src-tauri -> target
+      - run: npm ci
+      - name: Build Apple Silicon dmg
+        run: npx tauri build --target aarch64-apple-darwin --config src-tauri/tauri.macos.json
+      - name: Build Intel dmg
+        run: npx tauri build --target x86_64-apple-darwin --config src-tauri/tauri.macos.json
+      - name: Normalize artifact names
+        run: |
+          mkdir -p dist-desktop
+          cp "src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/Vaultfolio_${GITHUB_REF_NAME#v}_aarch64.dmg" "dist-desktop/${MAC_ARM64_ARTIFACT}"
+          cp "src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/Vaultfolio_${GITHUB_REF_NAME#v}_x64.dmg" "dist-desktop/${MAC_X64_ARTIFACT}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-installers
+          path: dist-desktop/*.dmg
+          if-no-files-found: error
+      - name: Upload to draft release
+        if: startsWith(github.ref, 'refs/tags/')
+        run: gh release upload "${GITHUB_REF_NAME}" dist-desktop/*.dmg --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  windows:
+    needs: create-draft
+    name: Windows installer (x64)
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            src-tauri -> target
+      - run: npm ci
+      - name: Build NSIS installer
+        run: npx tauri build --config src-tauri/tauri.windows.json
+      - name: Normalize artifact names
+        run: |
+          mkdir -p dist-desktop
+          cp "src-tauri/target/release/bundle/nsis/Vaultfolio_${GITHUB_REF_NAME#v}_x64-setup.exe" "dist-desktop/${WIN_X64_ARTIFACT}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: dist-desktop/*.exe
+          if-no-files-found: error
+      - name: Upload to draft release
+        if: startsWith(github.ref, 'refs/tags/')
+        run: gh release upload "${GITHUB_REF_NAME}" dist-desktop/*.exe --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  publish:
+    needs: [macos, windows]
+    name: Publish release
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    steps:
+      - name: Publish draft release
+        run: gh release edit "${GITHUB_REF_NAME}" --draft=false --latest
+        env:
+          GH_TOKEN: ${{ github.token }}
