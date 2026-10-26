@@ -6,15 +6,15 @@ Vaultfolio tracks physical assets—precious metals, jewelry and gemstones, watc
 
 ## Download the Latest Version
 
-**Latest verified release: v1.0.2 — 26 October 2026.** A corrected v1.0.3 installer set is being prepared: v1.0.2 has the right version metadata but an older frontend bundle, so do not use it for Market Watch.
+**Corrected v1.0.4 installer set is being prepared.** Do not use v1.0.2 or v1.0.3: v1.0.2 has a stale frontend, and v1.0.3's macOS bundle has an invalid signature.
 
 | Platform | Download | Status |
 | --- | --- | --- |
-| macOS Apple Silicon (arm64) | Corrected v1.0.3 DMG is building | Do not use v1.0.2 for Market Watch |
-| macOS Intel (x64) | Corrected v1.0.3 DMG is building | Do not use v1.0.2 for Market Watch |
-| Windows 10/11 (x64) | Corrected v1.0.3 setup EXE is building | Do not use v1.0.2 for Market Watch |
+| macOS Apple Silicon (arm64) | Corrected v1.0.4 DMG is building | Re-signed app bundle with current Market Watch UI |
+| macOS Intel (x64) | Corrected v1.0.4 DMG is building | Re-signed app bundle with current Market Watch UI |
+| Windows 10/11 (x64) | Corrected v1.0.4 setup EXE is building | Current Market Watch UI |
 
-The v1.0.3 release will contain a packaging fix that forces the current frontend bundle to be embedded in every native installer. See [all releases](https://github.com/PyDeV1OpEr/Vaultfolio/releases).
+The v1.0.4 release includes both fixes: it forces the current frontend to be embedded and rebuilds the macOS DMG after validating its app signature. See [all releases](https://github.com/PyDeV1OpEr/Vaultfolio/releases).
 
 ## What’s in v1.0.2
 

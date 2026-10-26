@@ -4,7 +4,7 @@ All notable changes to Vaultfolio are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [SemVer](https://semver.org/spec/v2.0.0.html) — MAJOR.MINOR.PATCH, with PATCH reserved for fixes that don't change persisted data or user-visible flows.
 
-## [1.0.3] — 2026-10-26
+## [1.0.4] — 2026-10-26
 
 ### Added
 - **Market Watch**: optional GoldAPI.io primary and Goldsafe.io fallback spot-price providers for gold, silver, platinum, and palladium; copper is shown as unsupported until a configured provider supports it.
@@ -15,6 +15,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Desktop package metadata is aligned at version 1.0.3 for the Market Watch release.
 - The release workflow publishes a native Windows x64 NSIS installer from a Windows runner and native macOS arm64/x64 DMGs from macOS runners.
 - Desktop packaging now invalidates the embedded frontend assets before every release build, preventing a stale UI bundle from being shipped.
+- macOS release bundles are re-signed after assembly and the DMGs are rebuilt from the verified apps, fixing the invalid embedded signature that caused macOS to report prior builds as damaged.
 
 ### Known limitations
 - Market Watch needs the user's own optional GoldAPI.io and/or Goldsafe.io credential. A client-side `VITE_*` value is bundled into a desktop build, so use an individually scoped, low-privilege key and never treat it as a secret.

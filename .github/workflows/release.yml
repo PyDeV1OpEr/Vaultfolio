@@ -128,6 +128,20 @@ jobs:
         run: npx tauri build --target aarch64-apple-darwin --config src-tauri/tauri.macos.json
       - name: Build Intel dmg
         run: npx tauri build --target x86_64-apple-darwin --config src-tauri/tauri.macos.json
+      - name: Validate-sign apps and rebuild DMGs
+        # Tauri's default ad-hoc signature can be invalid after the bundle is
+        # assembled. Re-sign the finished app and then create the DMG from that
+        # verified bundle. This is not Developer ID signing or notarization, but
+        # it prevents macOS from reporting the app as damaged.
+        run: |
+          for target in aarch64-apple-darwin x86_64-apple-darwin; do
+            app="src-tauri/target/${target}/release/bundle/macos/Vaultfolio.app"
+            dmg="src-tauri/target/${target}/release/bundle/dmg/Vaultfolio_${GITHUB_REF_NAME#v}_$( [ "$target" = aarch64-apple-darwin ] && echo aarch64 || echo x64 ).dmg"
+            codesign --force --deep --sign - "$app"
+            codesign --verify --deep --strict --verbose=2 "$app"
+            hdiutil create -volname Vaultfolio -srcfolder "$app" -ov -format UDZO "$dmg"
+            hdiutil verify "$dmg"
+          done
       - name: Normalize artifact names
         run: |
           mkdir -p dist-desktop
