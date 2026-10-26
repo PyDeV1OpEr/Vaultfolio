@@ -82,7 +82,7 @@ export function OnboardingScreen() {
           published.
         </p>
 
-        <Card className="p-5">
+        <Card elevated className="p-5 shadow-elev-3">
           <h2 className="text-sm font-semibold flex items-center gap-2 mb-1">
             <ShieldCheck size={15} className="text-accent" /> Create your private vault
           </h2>

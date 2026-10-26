@@ -26,7 +26,7 @@ import { formatDate, formatDateTime, formatMoney, parseNum, relativeTime } from 
 import { formatArea } from '../lib/units';
 import type { Asset, AssetStatus } from '../lib/types';
 import { HistoryLine } from '../components/Charts';
-import { Badge, Button, Card, CardHeader, EmptyState, Field, Input, Modal, Select, Skeleton, Textarea } from '../components/ui';
+import { Badge, Button, Card, CardHeader, EmptyState, Field, Input, Modal, Select, Skeleton, StatCard, Textarea } from '../components/ui';
 
 export function AssetDetail() {
   const { assetId } = useParams();
@@ -69,70 +69,130 @@ export function AssetDetail() {
 
   return (
     <div className="max-w-4xl space-y-5 animate-fadeUp">
-      {/* Header */}
-      <button onClick={() => navigate('/portfolio')} className="text-sm text-txt-muted hover:text-txt flex items-center gap-1">
-        <ArrowLeft size={14} /> Portfolio
+      {/* Header Breadcrumb */}
+      <button
+        onClick={() => navigate('/portfolio')}
+        className="text-xs font-medium text-txt-muted hover:text-txt inline-flex items-center gap-1.5 transition-colors"
+      >
+        <ArrowLeft size={13} /> Back to Assets
       </button>
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-start gap-3 min-w-0">
-          <span className={`w-11 h-11 rounded-xl bg-ink-800 border border-ink-700 flex items-center justify-center shrink-0 ${asset.category === 'gold_silver' ? 'text-amber-300' : 'text-accent'}`}>
-            <meta.icon size={21} />
+
+      <header className="flex flex-wrap items-start justify-between gap-4 pb-2 border-b border-ink-800/80">
+        <div className="flex items-start gap-3.5 min-w-0">
+          <span
+            className={`w-11 h-11 rounded-xl bg-ink-800 border border-ink-700 flex items-center justify-center shrink-0 shadow-elev-1 ${
+              asset.category === 'gold_silver' ? 'text-amber-400' : 'text-accent'
+            }`}
+          >
+            <meta.icon size={22} />
           </span>
           <div className="min-w-0">
-            <h1 className="text-xl lg:text-2xl font-semibold break-words">{asset.name}</h1>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-txt break-words">
+                {asset.name}
+              </h1>
+              {asset.quantity && asset.quantity > 1 && (
+                <span className="text-xs font-mono px-2 py-0.5 rounded-md bg-ink-800 text-txt-muted border border-ink-700">
+                  ×{asset.quantity}
+                </span>
+              )}
+            </div>
             <div className="flex flex-wrap items-center gap-2 mt-2">
               <Badge>{meta.label}</Badge>
               <StatusBadge status={asset.status} />
               <Badge tone="accent">{valuationMethodLabel(resolved.method)}</Badge>
-              <Badge tone={resolved.confidence === 'high' ? 'positive' : resolved.confidence === 'low' ? 'warning' : 'neutral'}>
-                {resolved.confidence === 'high' ? 'High confidence' : resolved.confidence === 'low' ? 'Low confidence' : 'Medium confidence'}
+              <Badge
+                tone={
+                  resolved.confidence === 'high'
+                    ? 'positive'
+                    : resolved.confidence === 'low'
+                    ? 'warning'
+                    : 'neutral'
+                }
+              >
+                {resolved.confidence === 'high'
+                  ? 'High confidence'
+                  : resolved.confidence === 'low'
+                  ? 'Low confidence'
+                  : 'Medium confidence'}
               </Badge>
             </div>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={() => setEditOpen(true)}>
-            <Pencil size={14} /> Edit
-          </Button>
-          <Button onClick={() => setValuationOpen(true)}>
+
+        {/* Action Buttons */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="primary" size="sm" onClick={() => setValuationOpen(true)}>
             <BadgeCheck size={14} /> Update valuation
           </Button>
+          <Button variant="secondary" size="sm" onClick={() => setEditOpen(true)}>
+            <Pencil size={14} /> Edit
+          </Button>
           {asset.status === 'active' && (
-            <Button onClick={() => setSoldOpen(true)}>
+            <Button variant="secondary" size="sm" onClick={() => setSoldOpen(true)}>
               Mark sold
             </Button>
           )}
         </div>
       </header>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Card className="p-4">
-          <p className="text-[12px] text-txt-muted">Estimated value today</p>
-          <p className="text-lg font-semibold tnum mt-1.5">
-            {resolved.valueLkr === null ? <span className="text-txt-dim text-sm font-normal">Unavailable</span> : formatMoney(resolved.valueLkr, settings.displayCurrency, usd)}
-          </p>
-          <p className="text-[11px] text-txt-dim mt-1">{resolved.sourceLabel}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-[12px] text-txt-muted">Purchase cost</p>
-          <p className="text-lg font-semibold tnum mt-1.5">{m.purchaseCostLkr === null ? '—' : formatMoney(m.purchaseCostLkr, settings.displayCurrency, usd)}</p>
-          {asset.purchase.date && <p className="text-[11px] text-txt-dim mt-1">{formatDate(asset.purchase.date)}{asset.purchase.currency && asset.purchase.currency !== 'LKR' ? ` (${asset.purchase.currency} ${asset.purchase.priceOriginal})` : ''}</p>}
-        </Card>
-        <Card className="p-4">
-          <p className="text-[12px] text-txt-muted">Unrealized gain (est.)</p>
-          <p className={`text-lg font-semibold tnum mt-1.5 ${m.unrealizedGainLkr === null ? '' : m.unrealizedGainLkr >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-            {m.unrealizedGainLkr === null ? '—' : formatMoney(m.unrealizedGainLkr, settings.displayCurrency, usd)}
-          </p>
-          <p className="text-[11px] text-txt-dim mt-1">value − cost · excludes selling costs & taxes</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-[12px] text-txt-muted">Est. resale proceeds</p>
-          <p className="text-lg font-semibold tnum mt-1.5">{resale === null ? '—' : formatMoney(resale, settings.displayCurrency, usd)}</p>
-          <p className="text-[11px] text-txt-dim mt-1">
-            {m.resaleGainLkr === null ? 'no resale figure recorded' : `net gain if sold: ${formatMoney(m.resaleGainLkr, settings.displayCurrency, usd)}`}
-          </p>
-        </Card>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+        <StatCard
+          label="Estimated Value Today"
+          value={
+            resolved.valueLkr === null
+              ? <span className="text-txt-dim text-xs font-normal">Unavailable</span>
+              : formatMoney(resolved.valueLkr, settings.displayCurrency, usd)
+          }
+          sub={resolved.sourceLabel}
+        />
+        <StatCard
+          label="Purchase Cost"
+          value={
+            m.purchaseCostLkr === null
+              ? '—'
+              : formatMoney(m.purchaseCostLkr, settings.displayCurrency, usd)
+          }
+          sub={
+            asset.purchase.date
+              ? `${formatDate(asset.purchase.date)}${
+                  asset.purchase.currency && asset.purchase.currency !== 'LKR'
+                    ? ` (${asset.purchase.currency} ${asset.purchase.priceOriginal})`
+                    : ''
+                }`
+              : 'Recorded purchase cost'
+          }
+        />
+        <StatCard
+          label="Unrealized Gain (est.)"
+          value={
+            m.unrealizedGainLkr === null
+              ? '—'
+              : `${m.unrealizedGainLkr >= 0 ? '+' : ''}${formatMoney(m.unrealizedGainLkr, settings.displayCurrency, usd)}`
+          }
+          tone={
+            m.unrealizedGainLkr === null
+              ? 'neutral'
+              : m.unrealizedGainLkr >= 0
+              ? 'positive'
+              : 'negative'
+          }
+          sub="Value − cost · mark-to-estimate"
+        />
+        <StatCard
+          label="Est. Resale Proceeds"
+          value={
+            resale === null
+              ? '—'
+              : formatMoney(resale, settings.displayCurrency, usd)
+          }
+          sub={
+            m.resaleGainLkr === null
+              ? 'No resale figure recorded'
+              : `Net resale gain: ${formatMoney(m.resaleGainLkr, settings.displayCurrency, usd)}`
+          }
+        />
       </div>
 
       {/* Explanation of the valuation */}

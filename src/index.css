@@ -2,6 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Document defaults ─── */
 html,
 body,
 #root {
@@ -10,37 +11,43 @@ body,
 
 body {
   @apply bg-ink-950 text-txt antialiased;
-  font-feature-settings: 'tnum' on, 'lnum' on;
+  font-feature-settings: 'tnum' on, 'lnum' on, 'ss01' on;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-/* Refined scrollbars */
+/* ─── Scrollbars ─── */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #232d40 transparent;
+  scrollbar-color: #1f2a3e transparent;
 }
 *::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 5px;
+  height: 5px;
 }
 *::-webkit-scrollbar-thumb {
-  @apply bg-ink-600/60 rounded-full;
+  background: #232d40;
+  border-radius: 999px;
 }
 *::-webkit-scrollbar-track {
   background: transparent;
 }
 
-/* Visible, accessible focus everywhere */
+/* ─── Focus ring ─── */
 *:focus-visible {
   outline: 2px solid theme('colors.accent.DEFAULT');
   outline-offset: 2px;
   border-radius: 4px;
 }
 
-/* Numerals in stat blocks */
+/* ─── Tabular numerals ─── */
 .tnum {
   font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' on;
 }
 
+/* ─── Remove number spinners ─── */
 input[type='number']::-webkit-outer-spin-button,
 input[type='number']::-webkit-inner-spin-button {
   -webkit-appearance: none;
@@ -49,4 +56,112 @@ input[type='number']::-webkit-inner-spin-button {
 input[type='number'] {
   -moz-appearance: textfield;
   appearance: textfield;
+}
+
+/* ─── Smooth scroll ─── */
+html {
+  scroll-behavior: smooth;
+}
+
+/* ─── Reduced motion ─── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ─── Skeleton shimmer ─── */
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    theme('colors.ink.800') 25%,
+    theme('colors.ink.750') 50%,
+    theme('colors.ink.800') 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.8s linear infinite;
+}
+
+/* ─── Chart tooltip ─── */
+.recharts-tooltip-wrapper {
+  outline: none !important;
+}
+
+/* ─── Page transitions ─── */
+.page-enter {
+  animation: fadeUp 0.22s ease-out both;
+}
+
+/* ─── Premium value display ─── */
+.value-display {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' on, 'lnum' on;
+  letter-spacing: -0.01em;
+}
+
+/* ─── Gradient text ─── */
+.text-gradient-accent {
+  background: linear-gradient(135deg, #4d8dff 0%, #7cc4ff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ─── Sidebar active indicator ─── */
+.nav-active-indicator {
+  position: relative;
+}
+.nav-active-indicator::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 16px;
+  background: theme('colors.accent.DEFAULT');
+  border-radius: 999px;
+}
+
+/* ─── Card hover lift ─── */
+.card-lift {
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.card-lift:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+/* ─── Positive/negative text colors ─── */
+.text-gain { @apply text-emerald-400; }
+.text-loss { @apply text-rose-400; }
+.text-neutral-val { @apply text-txt-muted; }
+
+/* ─── Section divider ─── */
+.section-divider {
+  @apply border-t border-ink-700/70 my-5;
+}
+
+/* ─── Input focus glow ─── */
+input:focus,
+select:focus,
+textarea:focus {
+  box-shadow: 0 0 0 3px rgba(77, 141, 255, 0.08);
+}
+
+/* ─── Modal backdrop ─── */
+.modal-backdrop {
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* ─── Custom selection color ─── */
+::selection {
+  background: rgba(77, 141, 255, 0.25);
+  color: #f2f5fa;
 }

@@ -31,7 +31,7 @@ Vaultfolio runs unchanged in any modern browser — the desktop apps are a nativ
 
 Installing from a `.dmg`: open the file and drag **Vaultfolio.app** into `Applications`. Installing from the `.exe`: download, run the setup, and follow the NSIS wizard.
 
-> **Release builds & installers**: The release workflow (`.github/workflows/release.yml`) builds and publishes native packages on every `v*` tag. Apple Silicon `.dmg` has been built and verified locally (`Vaultfolio_1.0.0_aarch64.dmg`, 2.8 MB).
+> **Release builds & installers**: The release workflow (`.github/workflows/release.yml`) builds and publishes native packages on every `v*` tag. Apple Silicon `.dmg` has been built and verified locally (`Vaultfolio_1.0.1_aarch64.dmg`, ~2.8 MB).
 
 ### Unsigned-build security warnings
 

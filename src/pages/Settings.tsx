@@ -101,10 +101,10 @@ export function Settings() {
   };
 
   return (
-    <div className="max-w-3xl space-y-4 animate-fadeUp">
-      <header>
-        <h1 className="text-xl lg:text-2xl font-semibold">Settings</h1>
-        <p className="text-sm text-txt-muted mt-1">Preferences for how Vaultfolio reads and keeps your data.</p>
+    <div className="max-w-3xl space-y-5 animate-fadeUp">
+      <header className="pb-2 border-b border-ink-800/80">
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-txt">Settings & Preferences</h1>
+        <p className="text-xs text-txt-muted mt-0.5">Preferences for how Vaultfolio reads, encrypts, and maintains your data.</p>
       </header>
 
       {/* Profile / account */}

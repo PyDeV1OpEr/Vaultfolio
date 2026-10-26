@@ -91,7 +91,7 @@ export function UnlockScreen() {
           <span className="text-xl font-semibold">Vaultfolio</span>
         </div>
 
-        <Card className="p-5">
+        <Card elevated className="p-5 shadow-elev-3">
           {tab === 'main' ? (
             <>
               <h2 className="text-sm font-semibold flex items-center gap-2 mb-4">

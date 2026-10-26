@@ -1,11 +1,11 @@
 import {
+  Area,
+  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
   Cell,
   Legend,
-  Line,
-  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -17,7 +17,25 @@ import type { AssetCategory, CurrencyCode } from '../lib/types';
 import { categoryMeta } from '../lib/categories';
 import { compactFormat } from '../lib/money';
 
-const PALETTE = ['#4d8dff', '#7cc4ff', '#f5c26b', '#b58cf5', '#6ce0b1', '#f281a1', '#9aa7bd'];
+export const CHART_PALETTE = [
+  '#4d8dff', // electric blue
+  '#38bdf8', // sky
+  '#34d399', // emerald
+  '#fbbf24', // amber
+  '#a78bfa', // violet
+  '#fb7185', // rose
+  '#64748b', // slate
+];
+
+const TOOLTIP_STYLE = {
+  backgroundColor: '#0e131c',
+  borderColor: '#232d40',
+  borderRadius: '12px',
+  boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+  fontSize: '12px',
+  color: '#f2f5fa',
+  padding: '8px 12px',
+};
 
 /** Donut / Pie chart of portfolio allocation by category */
 export function AllocationDonut({
@@ -31,33 +49,33 @@ export function AllocationDonut({
     ...d,
     name: categoryMeta(d.category).label,
   }));
+
   return (
-    <div className="h-[240px] w-full" role="img" aria-label="Asset allocation by category">
+    <div className="h-[250px] w-full" role="img" aria-label="Asset allocation by category">
       <ResponsiveContainer>
         <PieChart>
           <Pie
             data={rows}
             dataKey="valueLkr"
             nameKey="name"
-            innerRadius="54%"
-            outerRadius="82%"
-            paddingAngle={2}
+            innerRadius="58%"
+            outerRadius="84%"
+            paddingAngle={2.5}
             stroke="#0b0f16"
             strokeWidth={2}
+            isAnimationActive={true}
           >
             {rows.map((_, i) => (
-              <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
+              <Cell key={i} fill={CHART_PALETTE[i % CHART_PALETTE.length]} />
             ))}
           </Pie>
           <Tooltip
-            contentStyle={{
-              background: '#0e131c',
-              border: '1px solid #232d40',
-              borderRadius: 10,
-              fontSize: 12,
-              color: '#f2f5fa',
-            }}
-            formatter={(value: number) => [`${displayCurrency} ${compactFormat(value)}`, 'Estimated Value']}
+            contentStyle={TOOLTIP_STYLE}
+            itemStyle={{ color: '#f2f5fa' }}
+            formatter={(value: number) => [
+              `${displayCurrency} ${compactFormat(value)}`,
+              'Estimated Value',
+            ]}
           />
         </PieChart>
       </ResponsiveContainer>
@@ -78,8 +96,9 @@ export function CategoryBarChart({
     fullName: categoryMeta(d.category).label,
     value: d.valueLkr,
   }));
+
   return (
-    <div className="h-[240px] w-full" role="img" aria-label="Total value by asset category">
+    <div className="h-[250px] w-full" role="img" aria-label="Total value by asset category">
       <ResponsiveContainer>
         <BarChart data={rows} margin={{ top: 12, right: 12, bottom: 4, left: 4 }}>
           <CartesianGrid stroke="#1a2232" strokeDasharray="3 3" vertical={false} />
@@ -97,19 +116,14 @@ export function CategoryBarChart({
             tickFormatter={(v: number) => compactFormat(v)}
           />
           <Tooltip
-            contentStyle={{
-              background: '#0e131c',
-              border: '1px solid #232d40',
-              borderRadius: 10,
-              fontSize: 12,
-              color: '#f2f5fa',
-            }}
+            contentStyle={TOOLTIP_STYLE}
+            itemStyle={{ color: '#f2f5fa' }}
             formatter={(v: number) => [`${displayCurrency} ${compactFormat(v)}`, 'Total Value']}
             labelFormatter={(_, arr) => arr[0]?.payload?.fullName ?? ''}
           />
-          <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+          <Bar dataKey="value" radius={[6, 6, 0, 0]} isAnimationActive={true}>
             {rows.map((_, i) => (
-              <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
+              <Cell key={i} fill={CHART_PALETTE[i % CHART_PALETTE.length]} />
             ))}
           </Bar>
         </BarChart>
@@ -131,8 +145,9 @@ export function TopAssetsBarChart({
     fullName: d.name,
     value: d.valueLkr,
   }));
+
   return (
-    <div className="h-[240px] w-full" role="img" aria-label="Individual asset values">
+    <div className="h-[250px] w-full" role="img" aria-label="Individual asset values">
       <ResponsiveContainer>
         <BarChart layout="vertical" data={rows} margin={{ top: 8, right: 16, bottom: 4, left: 12 }}>
           <CartesianGrid stroke="#1a2232" strokeDasharray="3 3" horizontal={false} />
@@ -152,17 +167,12 @@ export function TopAssetsBarChart({
             width={90}
           />
           <Tooltip
-            contentStyle={{
-              background: '#0e131c',
-              border: '1px solid #232d40',
-              borderRadius: 10,
-              fontSize: 12,
-              color: '#f2f5fa',
-            }}
+            contentStyle={TOOLTIP_STYLE}
+            itemStyle={{ color: '#f2f5fa' }}
             formatter={(v: number) => [`${displayCurrency} ${compactFormat(v)}`, 'Estimated Value']}
             labelFormatter={(_, arr) => arr[0]?.payload?.fullName ?? ''}
           />
-          <Bar dataKey="value" fill="#4d8dff" radius={[0, 4, 4, 0]} />
+          <Bar dataKey="value" fill="#4d8dff" radius={[0, 6, 6, 0]} isAnimationActive={true} />
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -178,7 +188,7 @@ export function CostVsValueChart({
   displayCurrency: CurrencyCode;
 }) {
   return (
-    <div className="h-[240px] w-full" role="img" aria-label="Purchase cost vs current value comparison">
+    <div className="h-[250px] w-full" role="img" aria-label="Purchase cost vs current value comparison">
       <ResponsiveContainer>
         <BarChart data={data} margin={{ top: 12, right: 12, bottom: 4, left: 4 }}>
           <CartesianGrid stroke="#1a2232" strokeDasharray="3 3" vertical={false} />
@@ -196,13 +206,8 @@ export function CostVsValueChart({
             tickFormatter={(v: number) => compactFormat(v)}
           />
           <Tooltip
-            contentStyle={{
-              background: '#0e131c',
-              border: '1px solid #232d40',
-              borderRadius: 10,
-              fontSize: 12,
-              color: '#f2f5fa',
-            }}
+            contentStyle={TOOLTIP_STYLE}
+            itemStyle={{ color: '#f2f5fa' }}
             formatter={(v: number, name: string) => [
               `${displayCurrency} ${compactFormat(v)}`,
               name === 'costLkr' ? 'Purchase Cost' : 'Current Value',
@@ -217,8 +222,8 @@ export function CostVsValueChart({
               </span>
             )}
           />
-          <Bar dataKey="costLkr" name="costLkr" fill="#5d6779" radius={[4, 4, 0, 0]} />
-          <Bar dataKey="valueLkr" name="valueLkr" fill="#4d8dff" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="costLkr" name="costLkr" fill="#5d6779" radius={[4, 4, 0, 0]} isAnimationActive={true} />
+          <Bar dataKey="valueLkr" name="valueLkr" fill="#4d8dff" radius={[4, 4, 0, 0]} isAnimationActive={true} />
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -228,13 +233,24 @@ export function CostVsValueChart({
 /** Recorded valuations over time — only genuine historical snapshots */
 export function HistoryLine({ data }: { data: { date: string; valueLkr: number }[] }) {
   const rows = data.map((d) => ({
-    date: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }),
+    date: new Date(d.date).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: '2-digit',
+    }),
     value: d.valueLkr,
   }));
+
   return (
-    <div className="h-[240px] w-full" role="img" aria-label="Recorded portfolio value over time">
+    <div className="h-[250px] w-full" role="img" aria-label="Recorded portfolio value over time">
       <ResponsiveContainer>
-        <LineChart data={rows} margin={{ top: 12, right: 12, bottom: 4, left: 8 }}>
+        <AreaChart data={rows} margin={{ top: 12, right: 12, bottom: 4, left: 8 }}>
+          <defs>
+            <linearGradient id="valGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#4d8dff" stopOpacity={0.25} />
+              <stop offset="95%" stopColor="#4d8dff" stopOpacity={0.0} />
+            </linearGradient>
+          </defs>
           <CartesianGrid stroke="#1a2232" strokeDasharray="3 3" vertical={false} />
           <XAxis
             dataKey="date"
@@ -250,24 +266,20 @@ export function HistoryLine({ data }: { data: { date: string; valueLkr: number }
             tickFormatter={(v: number) => compactFormat(v)}
           />
           <Tooltip
-            contentStyle={{
-              background: '#0e131c',
-              border: '1px solid #232d40',
-              borderRadius: 10,
-              fontSize: 12,
-              color: '#f2f5fa',
-            }}
+            contentStyle={TOOLTIP_STYLE}
+            itemStyle={{ color: '#f2f5fa' }}
             formatter={(v: number) => [`LKR ${v.toLocaleString('en-US')}`, 'Recorded Value']}
           />
-          <Line
+          <Area
             type="monotone"
             dataKey="value"
             stroke="#4d8dff"
             strokeWidth={2.5}
-            dot={{ r: 4, fill: '#4d8dff', strokeWidth: 0 }}
-            activeDot={{ r: 6 }}
+            fillOpacity={1}
+            fill="url(#valGrad)"
+            isAnimationActive={true}
           />
-        </LineChart>
+        </AreaChart>
       </ResponsiveContainer>
     </div>
   );

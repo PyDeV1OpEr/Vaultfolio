@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
+  ArrowRight,
   ArrowUpRight,
   BarChart3,
   Coins,
@@ -13,12 +14,11 @@ import {
   Wallet,
 } from 'lucide-react';
 import { useData } from '../store/dataStore';
-import { activeAssets } from '../store/dataStore';
 import { statsFor, assetMetrics, allocationByCategory, resolveAssetValuation, portfolioTimeline } from '../lib/valuation';
 import { categoryMeta } from '../lib/categories';
 import { formatMoney, formatPercent, relativeTime } from '../lib/money';
-import { AllocationDonut, HistoryLine } from '../components/Charts';
-import { Button, Card, CardHeader, EmptyState, Skeleton } from '../components/ui';
+import { AllocationDonut, CHART_PALETTE, HistoryLine } from '../components/Charts';
+import { Button, Card, CardHeader, EmptyState, StatCard } from '../components/ui';
 
 export function Overview() {
   const { assets, market, settings, marketLoading, refreshMarket, records } = useData();
@@ -45,7 +45,7 @@ export function Overview() {
 
   if (assets.length === 0) {
     return (
-      <div className="max-w-lg mx-auto">
+      <div className="max-w-xl mx-auto pt-8 animate-fadeUp">
         <Onboarding />
       </div>
     );
@@ -55,181 +55,209 @@ export function Overview() {
 
   return (
     <div className="space-y-6 animate-fadeUp">
-      <header className="flex items-end justify-between gap-4 flex-wrap">
+      {/* Top Header */}
+      <header className="flex items-center justify-between gap-4 flex-wrap pb-2 border-b border-ink-800/80">
         <div>
-          <h1 className="text-xl lg:text-2xl font-semibold">Overview</h1>
-          <p className="text-sm text-txt-muted mt-1">
-            {stats.activeCount} active assets
-            {stats.unvaluedCount > 0 && ` · ${stats.unvaluedCount} awaiting a valuation`}
-            {settings.displayCurrency === 'USD' && usdLkr == null && ' · USD rate unavailable — showing LKR'}
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-txt">Portfolio Overview</h1>
+          <p className="text-xs text-txt-muted mt-0.5">
+            {stats.activeCount} active physical asset{stats.activeCount === 1 ? '' : 's'}
+            {stats.unvaluedCount > 0 && ` · ${stats.unvaluedCount} awaiting valuation`}
+            {settings.displayCurrency === 'USD' && usdLkr == null && ' · USD rate unavailable'}
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={() => void refreshMarket()} variant="ghost" aria-label="Refresh market data">
-            <RefreshCw size={15} className={marketLoading ? 'animate-spin' : ''} />
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={() => void refreshMarket()}
+            variant="ghost"
+            size="sm"
+            aria-label="Refresh market data"
+            className="text-txt-muted hover:text-txt"
+          >
+            <RefreshCw size={14} className={marketLoading ? 'animate-spin' : ''} />
             <span className="hidden sm:inline">Refresh</span>
           </Button>
-          <Button variant="primary" onClick={() => navigate('/add')}>
-            <Plus size={15} /> Add Asset
+          <Button variant="primary" size="sm" onClick={() => navigate('/add')}>
+            <Plus size={14} /> Add Asset
           </Button>
         </div>
       </header>
 
-      {/* Stat row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* KPI Stats Grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
         <StatCard
-          icon={<Vault size={16} />}
-          label="Estimated total value"
+          icon={<Vault size={15} className="text-accent" />}
+          label="Estimated Total Value"
           value={formatMoney(stats.totalValueLkr, settings.displayCurrency, usdLkr)}
           sub={
             stats.unvaluedCount > 0
-              ? `excl. ${stats.unvaluedCount} unvalued asset${stats.unvaluedCount > 1 ? 's' : ''}`
+              ? `Excl. ${stats.unvaluedCount} unvalued asset${stats.unvaluedCount > 1 ? 's' : ''}`
               : `${stats.valuedCount} valued assets`
           }
         />
         <StatCard
-          icon={<TrendingUp size={16} />}
-          label="Estimated gain"
-          value={formatMoney(stats.gainLkr, settings.displayCurrency, usdLkr)}
+          icon={<TrendingUp size={15} className={stats.gainLkr >= 0 ? 'text-emerald-400' : 'text-rose-400'} />}
+          label="Estimated Net Gain"
+          value={
+            stats.totalCostLkr > 0
+              ? `${stats.gainLkr >= 0 ? '+' : ''}${formatMoney(stats.gainLkr, settings.displayCurrency, usdLkr)}`
+              : '—'
+          }
           tone={stats.gainLkr > 0 ? 'positive' : stats.gainLkr < 0 ? 'negative' : 'neutral'}
           sub={
             gainPct !== null
-              ? `${formatPercent(gainPct)} over cost — excludes selling costs, taxes & fees`
-              : 'Add purchase costs to compute gain'
+              ? `${formatPercent(gainPct)} return over purchase cost`
+              : 'Add purchase costs to calculate return'
           }
         />
         <StatCard
-          icon={<Coins size={16} />}
-          label="Assets"
-          value={String(stats.activeCount)}
-          sub={`${stats.soldCount} sold · ${assets.length} total records`}
+          icon={<Hash size={15} className="text-txt-dim" />}
+          label="Total Invested Cost"
+          value={formatMoney(stats.totalCostLkr, settings.displayCurrency, usdLkr)}
+          sub="Sum of recorded purchase prices & fees"
         />
         <StatCard
-          icon={<Hash size={16} />}
-          label="Total paid"
-          value={formatMoney(stats.totalCostLkr, settings.displayCurrency, usdLkr)}
-          sub="sum of recorded purchase costs"
+          icon={<Coins size={15} className="text-amber-400" />}
+          label="Active Holdings"
+          value={String(stats.activeCount)}
+          sub={`${stats.soldCount} sold · ${assets.length} total recorded`}
         />
       </div>
 
+      {/* Charts Section: Allocation & History */}
       <div className="grid lg:grid-cols-2 gap-4">
-        {/* Distribution */}
+        {/* Category Allocation */}
         <Card>
           <CardHeader
-            title="Category distribution"
+            title="Asset Class Distribution"
             subtitle={
               stats.valuedCount === 0
                 ? 'No valued assets yet'
-                : `${stats.valuedCount} valued assets shown`
+                : `${stats.valuedCount} valued assets categorized`
             }
             action={
-              <Link to="/insights" className="text-xs text-accent hover:underline">
-                Insights →
+              <Link to="/insights" className="text-xs text-accent hover:text-accent-hover inline-flex items-center gap-1 font-medium">
+                Deep Insights <ArrowRight size={12} />
               </Link>
             }
           />
           {allocation.length === 0 ? (
-            <p className="text-sm text-txt-muted px-5 pb-6">
-              Valuations aren’t available yet — add an estimate from any asset page.
-            </p>
+            <div className="px-5 py-12 text-center text-sm text-txt-muted">
+              Valuations aren’t available yet — add an estimate on any asset.
+            </div>
           ) : (
-            <div className="px-5 pb-3">
+            <div className="px-5 pb-5">
               <AllocationDonut data={allocation} displayCurrency={settings.displayCurrency} />
-              <ul className="mt-3 space-y-1.5">
-                {allocation.map((a) => {
+              <div className="mt-4 space-y-1.5 pt-3 border-t border-ink-800">
+                {allocation.map((a, i) => {
                   const p = stats.totalValueLkr > 0 ? a.valueLkr / stats.totalValueLkr : 0;
+                  const color = CHART_PALETTE[i % CHART_PALETTE.length];
                   return (
-                    <li key={a.category} className="flex items-center gap-2 text-xs">
-                      <span className="w-2.5 h-2.5 rounded-sm bg-accent/70 shrink-0" />
+                    <div key={a.category} className="flex items-center gap-2 text-xs">
+                      <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: color }} />
                       <span className="text-txt-muted flex-1 truncate">{categoryMeta(a.category).label}</span>
-                      <span className="tnum text-txt">
+                      <span className="tnum font-medium text-txt">
                         {formatMoney(a.valueLkr, settings.displayCurrency, usdLkr)}
                       </span>
-                      <span className="tnum text-txt-dim w-10 text-right">{formatPercent(p)}</span>
-                    </li>
+                      <span className="tnum text-txt-dim w-12 text-right">{formatPercent(p)}</span>
+                    </div>
                   );
                 })}
-              </ul>
+              </div>
             </div>
           )}
         </Card>
 
-        {/* History */}
+        {/* Valuation Timeline */}
         <Card>
           <CardHeader
-            title="Recorded valuation history"
+            title="Recorded Valuation Trend"
             subtitle={
               history.length >= 3
-                ? `${history.length} recorded snapshots`
-                : 'Appears once you keep valuation records over time'
+                ? `${history.length} recorded valuation snapshots`
+                : 'Appears after keeping snapshots over time'
             }
           />
           {history.length >= 3 ? (
-            <div className="px-2 pb-3">
+            <div className="px-3 pb-4">
               <HistoryLine data={history} />
-              <p className="text-[11px] text-txt-dim px-3 pb-2">
-                Built only from recorded valuations — no backfilled or synthetic history.
+              <p className="text-2xs text-txt-dim px-3 pt-2">
+                Timeline derived strictly from timestamped valuation snapshots. Zero backfilled data.
               </p>
             </div>
           ) : (
-            <p className="text-sm text-txt-muted px-5 pb-8">
-              {timeline.length > 0
-                ? `Only ${timeline.length} snapshot${timeline.length === 1 ? '' : 's'} recorded so far — a trend line needs three or more to be honest.`
-                : 'Update valuations over time and snapshots appear here.'}
-            </p>
+            <div className="px-6 py-14 text-center">
+              <div className="w-10 h-10 rounded-xl bg-ink-800 border border-ink-700 flex items-center justify-center text-txt-dim mx-auto mb-3">
+                <BarChart3 size={18} />
+              </div>
+              <p className="text-sm font-medium text-txt">Snapshot Trend Line</p>
+              <p className="text-xs text-txt-muted mt-1.5 max-w-sm mx-auto leading-relaxed">
+                {timeline.length > 0
+                  ? `You have ${timeline.length} recorded snapshot${timeline.length === 1 ? '' : 's'}. A trend line renders once you have 3 or more.`
+                  : 'Update valuations over time and verified snapshots form an honest trend graph here.'}
+              </p>
+            </div>
           )}
         </Card>
       </div>
 
-      {/* Recent + quick actions */}
+      {/* Bottom Grid: Recent Assets + Quick Access */}
       <div className="grid lg:grid-cols-3 gap-4">
+        {/* Recent Assets */}
         <Card className="lg:col-span-2">
           <CardHeader
-            title="Recently added"
+            title="Recently Added Holdings"
+            subtitle="Most recently cataloged items"
             action={
-              <Link to="/portfolio" className="text-xs text-accent hover:underline">
-                View portfolio →
+              <Link to="/portfolio" className="text-xs text-accent hover:text-accent-hover inline-flex items-center gap-1 font-medium">
+                View All Assets <ArrowRight size={12} />
               </Link>
             }
           />
           <div className="px-4 pb-4 grid sm:grid-cols-2 gap-3">
             {recent.map((a) => {
               const resolved = resolveAssetValuation(a, marketData);
-              const m = assetMetrics(a, marketData);
               const meta = categoryMeta(a.category);
+              const Icon = meta.icon;
               return (
                 <Link
                   key={a.id}
                   to={`/portfolio/${a.id}`}
-                  className="bg-ink-850 border border-ink-700 rounded-lg p-3.5 hover:border-ink-600 transition-colors"
+                  className="bg-ink-850/70 border border-ink-700/80 rounded-xl p-3 hover:border-ink-600 hover:bg-ink-800/80 card-lift transition-all duration-120 group"
                 >
-                  <div className="flex items-center gap-2">
-                    <meta.icon size={15} className="text-txt-muted" />
-                    <p className="text-[13px] font-medium truncate">{a.name}</p>
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-8 h-8 rounded-lg bg-ink-800 border border-ink-700 flex items-center justify-center text-accent shrink-0">
+                      <Icon size={16} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold text-txt truncate group-hover:text-white">
+                        {a.name}
+                      </p>
+                      <p className="text-2xs text-txt-dim mt-0.5">{meta.label}</p>
+                    </div>
+                    <ArrowUpRight size={14} className="text-txt-dim group-hover:text-accent transition-colors" />
                   </div>
-                  <p className="tnum text-sm mt-2">
-                    {resolved.valueLkr === null ? (
-                      <span className="text-txt-dim text-[13px]">No valuation yet</span>
-                    ) : (
-                      formatMoney(resolved.valueLkr, settings.displayCurrency, usdLkr)
-                    )}
-                  </p>
-                  <p className="text-[11px] text-txt-dim mt-1">
-                    {meta.label} · added {relativeTime(a.createdAt)}
-                  </p>
+                  <div className="mt-2.5 pt-2 border-t border-ink-800/80 flex items-center justify-between text-xs">
+                    <span className="tnum font-medium text-txt">
+                      {resolved.valueLkr === null
+                        ? <span className="text-txt-dim font-normal text-2xs">No estimate</span>
+                        : formatMoney(resolved.valueLkr, settings.displayCurrency, usdLkr)}
+                    </span>
+                    <span className="text-2xs text-txt-dim">{relativeTime(a.createdAt)}</span>
+                  </div>
                 </Link>
               );
             })}
           </div>
         </Card>
 
+        {/* Quick Actions Card */}
         <Card>
-          <CardHeader title="Quick actions" subtitle="Manage your wealth" />
-          <div className="px-4 pb-4 grid grid-rows-4 gap-2">
-            <QuickAction to="/add" icon={<Plus size={15} />} label="Add an asset" />
-            <QuickAction to="/portfolio" icon={<Wallet size={15} />} label="View asset portfolio" />
-            <QuickAction to="/insights" icon={<BarChart3 size={15} />} label="View portfolio analytics" />
-            <QuickAction to="/settings" icon={<Vault size={15} />} label="Backup & security" />
+          <CardHeader title="Quick Actions" subtitle="Everyday vault tasks" />
+          <div className="px-4 pb-4 space-y-2">
+            <QuickAction to="/add" icon={<Plus size={15} className="text-accent" />} label="Add Physical Asset" />
+            <QuickAction to="/portfolio" icon={<Wallet size={15} className="text-sky-400" />} label="Review Asset Library" />
+            <QuickAction to="/insights" icon={<BarChart3 size={15} className="text-emerald-400" />} label="Portfolio Analytics" />
+            <QuickAction to="/settings" icon={<Vault size={15} className="text-amber-400" />} label="Backup & Security" />
           </div>
         </Card>
       </div>
@@ -237,60 +265,29 @@ export function Overview() {
   );
 }
 
-function StatCard({
-  icon,
-  label,
-  value,
-  sub,
-  tone = 'neutral',
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  sub?: string;
-  tone?: 'neutral' | 'positive' | 'negative';
-}) {
-  return (
-    <Card className="p-4">
-      <div className="flex items-center gap-2 text-txt-muted">
-        {icon}
-        <span className="text-[12px]">{label}</span>
-      </div>
-      <p
-        className={`text-lg xl:text-xl font-semibold tnum mt-2 break-all ${
-          tone === 'positive' ? 'text-emerald-400' : tone === 'negative' ? 'text-rose-400' : ''
-        }`}
-      >
-        {value || <span className="text-txt-dim font-normal">—</span>}
-      </p>
-      {sub && <p className="text-[11px] text-txt-dim mt-1 leading-snug">{sub}</p>}
-    </Card>
-  );
-}
-
 function QuickAction({ to, icon, label }: { to: string; icon: React.ReactNode; label: string }) {
   return (
     <Link
       to={to}
-      className="flex items-center gap-3 rounded-lg border border-ink-700 bg-ink-850 px-3.5 py-3 text-sm text-txt-muted hover:text-txt hover:border-ink-600 transition-colors"
+      className="flex items-center gap-3 rounded-xl border border-ink-700/80 bg-ink-850/60 px-3.5 py-2.5 text-xs font-medium text-txt-muted hover:text-txt hover:bg-ink-800/80 hover:border-ink-600 transition-all duration-120 group"
     >
-      {icon}
-      <span className="flex-1">{label}</span>
-      <ArrowUpRight size={14} className="text-txt-dim" />
+      <span className="shrink-0">{icon}</span>
+      <span className="flex-1 truncate">{label}</span>
+      <ArrowUpRight size={13} className="text-txt-dim group-hover:text-accent transition-colors" />
     </Link>
   );
 }
 
 function Onboarding() {
   return (
-    <Card className="mt-8">
+    <Card elevated className="mt-4">
       <EmptyState
-        icon={<Sparkles size={24} className="text-accent" />}
+        icon={<Sparkles size={26} className="text-accent" />}
         title="Welcome to your private vault"
-        body="Track your physical wealth — gold & precious metals, gemstones & jewelry, luxury watches, land & property, vehicles, and collectibles. All valuations are owner estimates, stored encrypted on this device."
+        body="Track and organize your physical wealth — gold & precious metals, gemstones, luxury watches, land & property, vehicles, and valuables. Everything is AES-256 encrypted on this device."
         action={
           <Link to="/add">
-            <Button variant="primary" className="px-6 py-2.5">
+            <Button variant="primary" size="md">
               <Plus size={16} /> Add your first asset
             </Button>
           </Link>

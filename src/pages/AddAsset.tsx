@@ -261,12 +261,16 @@ export function AddAsset() {
   if (!category) {
     return (
       <div className="max-w-3xl mx-auto animate-fadeUp">
-        <button onClick={() => setConfirmCancel(true)} className="text-sm text-txt-muted hover:text-txt flex items-center gap-1 mb-4">
-          <ArrowLeft size={14} /> Cancel
+        <button
+          onClick={() => setConfirmCancel(true)}
+          className="text-xs font-medium text-txt-muted hover:text-txt inline-flex items-center gap-1.5 mb-4 transition-colors"
+        >
+          <ArrowLeft size={13} /> Cancel
         </button>
-        <h1 className="text-xl lg:text-2xl font-semibold">What would you like to add?</h1>
-        <p className="text-sm text-txt-muted mt-1">Every category has a form built for that asset type.</p>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-6">
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-txt">What physical asset are you adding?</h1>
+        <p className="text-xs text-txt-muted mt-1">Select an asset class to launch its dedicated attribute schema.</p>
+
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3.5 mt-6">
           {CATEGORIES.map((c) => (
             <button
               key={c.id}
@@ -275,11 +279,17 @@ export function AddAsset() {
                 setState({});
                 setErrors({});
               }}
-              className="text-left bg-ink-900 border border-ink-700 rounded-xl p-4 hover:border-accent/50 hover:bg-ink-850 transition-colors group"
+              className="text-left bg-ink-900 border border-ink-700/80 rounded-xl p-4 hover:border-accent/40 hover:bg-ink-850/80 card-lift transition-all duration-150 group"
             >
-              <c.icon size={22} className={c.id === 'gold_silver' ? 'text-amber-300' : 'text-accent'} />
-              <p className="font-medium mt-3 text-sm">{c.label}</p>
-              <p className="text-[12px] text-txt-muted mt-1 leading-relaxed">{c.blurb}</p>
+              <span
+                className={`w-10 h-10 rounded-xl bg-ink-800 border border-ink-700 flex items-center justify-center shrink-0 mb-3 group-hover:scale-105 transition-transform duration-120 ${
+                  c.id === 'gold_silver' ? 'text-amber-400' : 'text-accent'
+                }`}
+              >
+                <c.icon size={20} />
+              </span>
+              <p className="font-semibold text-sm text-txt group-hover:text-white transition-colors">{c.label}</p>
+              <p className="text-2xs text-txt-dim mt-1 leading-relaxed">{c.blurb}</p>
             </button>
           ))}
         </div>
@@ -296,19 +306,26 @@ export function AddAsset() {
         onClick={() => {
           setConfirmCancel(true);
         }}
-        className="text-sm text-txt-muted hover:text-txt flex items-center gap-1 mb-4"
+        className="text-xs font-medium text-txt-muted hover:text-txt inline-flex items-center gap-1.5 mb-4 transition-colors"
       >
-        <ArrowLeft size={14} /> Back
+        <ArrowLeft size={13} /> Change Asset Class
       </button>
-      <div className="flex items-center gap-3">
-        <meta.icon size={26} className={category === 'gold_silver' ? 'text-amber-300' : 'text-accent'} />
+
+      <div className="flex items-center gap-3.5 pb-2 border-b border-ink-800/80">
+        <span
+          className={`w-11 h-11 rounded-xl bg-ink-800 border border-ink-700 flex items-center justify-center shrink-0 shadow-elev-1 ${
+            category === 'gold_silver' ? 'text-amber-400' : 'text-accent'
+          }`}
+        >
+          <meta.icon size={22} />
+        </span>
         <div>
-          <h1 className="text-xl lg:text-2xl font-semibold">Add {meta.label}</h1>
-          <p className="text-sm text-txt-muted mt-0.5">{CATEGORY_NOTE[category]}</p>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-txt">Add {meta.label}</h1>
+          <p className="text-xs text-txt-muted mt-0.5">{CATEGORY_NOTE[category]}</p>
         </div>
       </div>
 
-      <Card className="mt-5 space-y-6 p-5">
+      <Card elevated className="mt-5 space-y-6 p-5">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="sm:col-span-2">
             <Field label="Asset name" required error={errors.name}>
@@ -367,11 +384,11 @@ export function AddAsset() {
         </div>
 
         {/* Footer actions */}
-        <div className="flex justify-end gap-2 border-t border-ink-800 pt-4">
-          <Button variant="ghost" onClick={() => setConfirmCancel(true)}>
+        <div className="flex items-center justify-end gap-2.5 border-t border-ink-800 pt-4">
+          <Button variant="secondary" size="md" onClick={() => setConfirmCancel(true)}>
             Cancel
           </Button>
-          <Button variant="primary" onClick={() => void save()} disabled={busy}>
+          <Button variant="primary" size="md" onClick={() => void save()} disabled={busy}>
             {busy && <Loader2 size={14} className="animate-spin" />}
             <Check size={14} /> Save asset
           </Button>
