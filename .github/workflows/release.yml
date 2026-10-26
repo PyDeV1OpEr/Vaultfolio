@@ -59,18 +59,36 @@ jobs:
           | macOS — Intel | `Vaultfolio-macOS-x64.dmg` |
           | Windows 10/11 — x64 | `Vaultfolio-Windows-x64-setup.exe` |
 
+          ## What's new
+          - Market Watch adds optional international USD reference quotes for gold,
+            silver, platinum, and palladium through GoldAPI.io with Goldsafe.io
+            fallback support. Copper remains visibly unsupported until a configured
+            provider supports it.
+          - Price observations are validated and kept on-device, with freshness and
+            provider status plus interactive charts over the observations collected
+            on that device. This release does not claim historical provider backfill.
+          - Portfolio Analytics & Insights includes allocation, cost-versus-value,
+            top-holding, and logged portfolio-valuation charts.
+
+          ## Market data and limitations
+          - Market Watch fetching is optional and needs a user's own GoldAPI.io and/or
+            Goldsafe.io key. Its USD references and any LKR conversion are not Sri
+            Lankan dealer prices.
+          - Gemini is not required or configured for this release. An exhausted
+            Gemini quota does not affect the local vault, portfolio, or Market Watch.
+
           ### Install notes
           - The macOS builds and the Windows build are currently **unsigned**:
             - macOS first launch: right-click the app → **Open** (bypasses
               Gatekeeper for this app without changing system security).
             - Windows first launch: choose **More info → Run anyway** if
               SmartScreen shows a warning.
-          - The app works fully offline: create a local encrypted vault on
-            first launch — no account or API keys required. Cloud sync (via
-            your own Supabase project) is an optional alternative configured
-            with `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`.
-          - This release contains no telemetry and no embedded secrets beyond
-            public client configuration.
+          - The app works fully offline: create a local encrypted vault on first
+            launch — no account or API keys are required. Cloud sync (via your own
+            Supabase project) is optional.
+          - Release builds must not include `.env` files, Gemini credentials, or
+            market-provider keys. `VITE_*` settings are client-visible if supplied
+            at build time, so users should configure their own low-privilege keys.
           NOTES
           gh release create "${GITHUB_REF_NAME}" \
             --verify-tag \

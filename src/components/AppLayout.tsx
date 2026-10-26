@@ -182,7 +182,7 @@ function SidebarContent({ mode, onNavClick }: { mode: string; onNavClick: () => 
           <div className="flex items-center gap-1.5">
             <span className="font-semibold text-sm tracking-tight text-txt">Vaultfolio</span>
             <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-ink-800 text-txt-dim border border-ink-700">
-              v1.0.1
+              v1.0.2
             </span>
           </div>
           <p className="text-2xs text-txt-dim mt-0.5 flex items-center gap-1">

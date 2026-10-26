@@ -7,6 +7,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ## [Unreleased]
 
 ### Added
+- **Market Watch**: optional GoldAPI.io primary and Goldsafe.io fallback spot-price providers for gold, silver, platinum, and palladium; copper is shown as unsupported until a configured provider supports it.
+- **On-device market history**: validated observations, retrieval/provider timestamps, freshness states, bounded local persistence (500 observations per metal), and interactive 24-hour through all-time price timelines. This is collected forward from use; it is not provider backfill.
+- **Market data controls**: manual refresh, low-frequency automatic fetching (two runs/day by default), provider status, request estimates, and clear separation between international USD reference quotes and Sri Lankan dealer prices.
+
+### Changed
+- Desktop package metadata is aligned at version 1.0.2 for the Market Watch release.
+- The release workflow publishes a native Windows x64 NSIS installer from a Windows runner and native macOS arm64/x64 DMGs from macOS runners.
+
+### Known limitations
+- Market Watch needs the user's own optional GoldAPI.io and/or Goldsafe.io credential. A client-side `VITE_*` value is bundled into a desktop build, so use an individually scoped, low-privilege key and never treat it as a secret.
+- Gemini-powered functionality is not configured or required by the current application; an exhausted Gemini quota does not affect local vault, portfolio, charts, or Market Watch UI. No Gemini feature is advertised as available.
 - Tauri v2 desktop packaging: macOS Apple Silicon **and** Intel `.dmg` (both verified locally), plus a Windows x64 NSIS `.exe` target (builds on Windows or via CI; not cross-compilable from macOS).
 - Tag-triggered release workflow (`.github/workflows/release.yml`) that builds unsigned macOS and Windows installers and publishes them to GitHub Releases on a pushed `v*` tag.
 - Windows build path documented and wired into CI — WebView2 bootstrapper is embedded, NSIS tooling ships with the Tauri CLI.
