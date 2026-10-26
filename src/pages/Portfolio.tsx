@@ -84,9 +84,9 @@ export function Portfolio() {
     <div className="space-y-5 animate-fadeUp">
       <header className="flex items-end justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-xl lg:text-2xl font-semibold">My Portfolio</h1>
+          <h1 className="text-xl lg:text-2xl font-semibold">Assets</h1>
           <p className="text-sm text-txt-muted mt-1">
-            {assetCount.active} active{assetCount.other > 0 ? ` · ${assetCount.other} sold/archived` : ''}
+            {assetCount.active} active physical asset{assetCount.active === 1 ? '' : 's'}{assetCount.other > 0 ? ` · ${assetCount.other} sold/archived` : ''}
           </p>
         </div>
         <Button variant="primary" onClick={() => navigate('/add')}>

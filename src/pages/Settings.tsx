@@ -19,7 +19,6 @@ import { useData } from '../store/dataStore';
 import { SUPPORTED_CURRENCIES, downloadTextFile } from '../lib/money';
 import { categoryMeta } from '../lib/categories';
 import { supabaseConfigured } from '../lib/supabase';
-import { DEMO_MARKET } from '../lib/market';
 import { MAX_PIN_FAILURES } from '../lib/profile';
 import { Badge, Button, Card, CardHeader, Field, Input, Modal, Select } from '../components/ui';
 import type { CurrencyCode } from '../lib/types';
@@ -28,10 +27,11 @@ export function Settings() {
   const {
     settings, setSettings, assets, records, market, mode, signOut, userEmail,
     hasPin, pinLength, registerPin, changePin, removePin, changePassword, lock,
-    exportBackup, restoreBackup, wipeVault, loadSampleData, pushToast,
+    exportBackup, restoreBackup, wipeVault, pushToast,
   } = useData();
   const [exportOpen, setExportOpen] = useState(false);
   const [wipeOpen, setWipeOpen] = useState(false);
+  const [confirmRestoreOpen, setConfirmRestoreOpen] = useState(false);
   const [includePrivate, setIncludePrivate] = useState(false);
 
   /* security form state (local mode only) */
@@ -354,15 +354,6 @@ export function Settings() {
             </div>
 
             {secErr && <p className="text-xs text-rose-400">{secErr}</p>}
-
-            {/* Dev-only sample data */}
-            {import.meta.env.DEV === true && (
-              <div className="flex flex-wrap gap-2 items-center">
-                <Button variant="ghost" className="text-xs" onClick={() => void loadSampleData()}>
-                  <RotateCcw size={12} /> Load sample dataset (dev)
-                </Button>
-              </div>
-            )}
           </div>
         </Card>
       )}
@@ -410,8 +401,8 @@ export function Settings() {
                 <Upload size={13} className="text-accent" /> Restore from backup
               </p>
               <p className="text-[11px] text-txt-dim">
-                Restoring <strong>replaces all current data</strong> in this vault with the backup’s
-                contents. Consider exporting a fresh backup first.
+                Restoring <strong>replaces current data</strong> in this vault with the backup file.
+                Confirmation is required before any data is overwritten.
               </p>
               <input
                 ref={fileInputRef}
@@ -435,16 +426,7 @@ export function Settings() {
                 <Button
                   variant="primary"
                   disabled={!restoreFile}
-                  onClick={async () => {
-                    if (!restoreFile) return;
-                    const res = await restoreBackup(restoreFile, restorePass || null);
-                    if (res) pushToast({ kind: 'error', title: 'Restore failed', body: res });
-                    else {
-                      setRestoreFile(null);
-                      setRestorePass('');
-                      if (fileInputRef.current) fileInputRef.current.value = '';
-                    }
-                  }}
+                  onClick={() => setConfirmRestoreOpen(true)}
                 >
                   Restore
                 </Button>
@@ -481,10 +463,7 @@ export function Settings() {
         </ul>
         {!configStatus.metalsApi && (
           <p className="px-5 pb-5 text-[11px] text-txt-dim">
-            Demo metal prices: LKR {DEMO_MARKET.goldPerGramLkr?.toLocaleString('en-US')}/g gold · LKR{' '}
-            {DEMO_MARKET.silverPerGramLkr?.toLocaleString('en-US')}/g silver · {DEMO_MARKET.usdLkr}/USD.{' '}
-            Provide <code className="text-accent">VITE_METALS_API_URL</code> for a live provider, or enter verified
-            prices manually on the Market page.
+            Vaultfolio operates fully offline: physical assets are tracked using transparent, user-entered estimates. No paid market API subscription or external network dependency is required.
           </p>
         )}
       </Card>
@@ -590,6 +569,52 @@ export function Settings() {
           (including anything you entered). Your profile, master password and PIN stay intact.
           This cannot be undone.
         </p>
+      </Modal>
+
+      {/* Restore confirmation modal */}
+      <Modal
+        open={confirmRestoreOpen}
+        onClose={() => setConfirmRestoreOpen(false)}
+        title="Confirm Portfolio Restore"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setConfirmRestoreOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={async () => {
+                if (!restoreFile) return;
+                setConfirmRestoreOpen(false);
+                const res = await restoreBackup(restoreFile, restorePass || null);
+                if (res) {
+                  pushToast({ kind: 'error', title: 'Restore failed', body: res });
+                } else {
+                  setRestoreFile(null);
+                  setRestorePass('');
+                  if (fileInputRef.current) fileInputRef.current.value = '';
+                  pushToast({ kind: 'success', title: 'Portfolio restored successfully', body: 'All assets and valuation history have been restored.' });
+                }
+              }}
+            >
+              <Upload size={14} /> Overwrite &amp; Restore
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-txt">
+            Are you sure you want to restore from <strong className="text-accent">{restoreFile?.name}</strong>?
+          </p>
+          <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-300">
+            <strong>Warning:</strong> This will replace all current data in this vault (
+            <strong>{assets.length} active asset{assets.length === 1 ? '' : 's'}</strong> and{' '}
+            <strong>{records.length} valuation event{records.length === 1 ? '' : 's'}</strong>) with the data contained in this backup.
+          </div>
+          <p className="text-xs text-txt-dim">
+            If you wish to preserve your current records, export a fresh backup before proceeding.
+          </p>
+        </div>
       </Modal>
     </div>
   );

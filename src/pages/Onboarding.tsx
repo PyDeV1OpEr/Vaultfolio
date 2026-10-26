@@ -16,6 +16,8 @@ export function OnboardingScreen() {
   const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [pin, setPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
   const [currency, setCurrency] = useState<'LKR' | 'USD'>('LKR');
   const [err, setErr] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -44,12 +46,21 @@ export function OnboardingScreen() {
       setErr('Passwords do not match.');
       return;
     }
+    if (pin.length !== 6 || !/^\d{6}$/.test(pin)) {
+      setErr('Application PIN must be exactly 6 digits.');
+      return;
+    }
+    if (pin !== confirmPin) {
+      setErr('6-digit PINs do not match.');
+      return;
+    }
     setPending(true);
     const res = await createProfile({
       username: username.trim(),
       password,
       displayName: displayName.trim() || null,
       currency,
+      pin,
     });
     setPending(false);
     if (res) setErr(res);
@@ -126,6 +137,42 @@ export function OnboardingScreen() {
                 autoComplete="new-password"
               />
             </Field>
+
+            <div className="pt-1 border-t border-ink-800">
+              <p className="text-[12px] font-medium text-txt mb-2">Quick 6-Digit PIN</p>
+              <p className="text-[11px] text-txt-dim mb-3">
+                Used to unlock your vault quickly at launch. Kept secure on this device with rate-limiting.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="6-digit PIN" required>
+                  <Input
+                    type="password"
+                    inputMode="numeric"
+                    maxLength={6}
+                    required
+                    value={pin}
+                    onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="••••••"
+                    className="text-center tracking-widest"
+                    autoComplete="off"
+                  />
+                </Field>
+                <Field label="Confirm PIN" required>
+                  <Input
+                    type="password"
+                    inputMode="numeric"
+                    maxLength={6}
+                    required
+                    value={confirmPin}
+                    onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="••••••"
+                    className="text-center tracking-widest"
+                    autoComplete="off"
+                  />
+                </Field>
+              </div>
+            </div>
+
             <Field label="Base currency" hint="Records are kept in LKR; USD display converts live.">
               <Select value={currency} onChange={(e) => setCurrency(e.target.value as 'LKR' | 'USD')}>
                 <option value="LKR">LKR — Sri Lankan Rupees (base)</option>
@@ -135,7 +182,12 @@ export function OnboardingScreen() {
 
             {err && <p className="text-xs text-rose-400">{err}</p>}
 
-            <Button variant="primary" className="w-full" type="submit" disabled={pending || !username || password.length < 8}>
+            <Button
+              variant="primary"
+              className="w-full"
+              type="submit"
+              disabled={pending || !username || password.length < 8 || pin.length !== 6 || pin !== confirmPin}
+            >
               {pending && <Loader2 size={14} className="animate-spin" />}
               Create vault
             </Button>

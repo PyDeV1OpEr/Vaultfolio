@@ -91,31 +91,29 @@ export function resolveAssetValuation(asset: Asset, market: MarketSnapshot | nul
     };
   }
 
-  // 2) Transparent calculation for gold & silver when market prices exist.
-  if (asset.category === 'gold_silver' && market) {
+  // 2) Transparent calculation only when a non-demo manual override or verified market rate exists.
+  if (asset.category === 'gold_silver' && market && !market.isDemo) {
     const mv = metalValueLkr(asset.attributes as GoldSilverAttrs, market);
     if (mv) {
-      const isDemo = market.isDemo;
       return {
         valueLkr: mv.valueLkr,
-        method: isDemo ? 'indicative' : 'calculated',
+        method: 'calculated',
         sourceLabel: market.sourceLabel,
-        confidence: isDemo ? 'low' : 'medium',
+        confidence: 'medium',
         explanation:
-          `Fine-metal content: ${mv.grams.toFixed(2)} g × ${mv.purity} purity × ${market.goldPerGramLkr && (asset.attributes as GoldSilverAttrs).metal === 'gold' ? 'gold' : 'silver'} price of ${
+          `Fine-metal content: ${mv.grams.toFixed(2)} g × ${mv.purity} purity × ${market.goldPerGramLkr && (asset.attributes as GoldSilverAttrs).metal === 'gold' ? 'gold' : 'silver'} reference price of ${
             (asset.attributes as GoldSilverAttrs).metal === 'gold'
               ? `LKR ${market.goldPerGramLkr?.toLocaleString('en-US')}/g`
               : `LKR ${market.silverPerGramLkr?.toLocaleString('en-US')}/g`
-          } from ${market.sourceLabel}${market.isDemo ? ' (demo price — not a live market quote)' : ''}.`,
+          } (${market.sourceLabel}).`,
         calculatedValueLkr: mv.valueLkr,
       };
     }
   }
 
-  // 3) An original recorded valuation (e.g. migrated record tagged with a method).
+  // 3) An original recorded valuation (e.g. user-entered or historical snapshot).
   if (
     asset.valuation?.method &&
-    asset.valuation.method !== 'user' &&
     asset.valuation.method !== 'unavailable' &&
     Number.isFinite(userValue)
   ) {
@@ -135,14 +133,14 @@ export function resolveAssetValuation(asset: Asset, market: MarketSnapshot | nul
     sourceLabel: 'None',
     confidence: 'low',
     explanation:
-      'No valuation available. Add a market price or enter the asset\u2019s estimated value manually.',
+      'No valuation available. Enter the asset\u2019s estimated value manually.',
   };
 }
 
 /** Resale proceeds preference: explicit resale entry beats derived metal resale. */
 export function resolveResaleValue(asset: Asset, market: MarketSnapshot | null): number | null {
   if (asset.resaleValueLkr !== null && asset.resaleValueLkr !== undefined) return asset.resaleValueLkr;
-  if (asset.category === 'gold_silver' && market) return metalResaleValueLkr(asset.attributes as GoldSilverAttrs, market);
+  if (asset.category === 'gold_silver' && market && !market.isDemo) return metalResaleValueLkr(asset.attributes as GoldSilverAttrs, market);
   return null;
 }
 
@@ -184,18 +182,31 @@ export function statsFor(assets: Asset[], market: MarketSnapshot | null): Portfo
   const sold = assets.filter((a) => a.status === 'sold');
   let totalValueLkr = 0;
   let totalCostLkr = 0;
+  let costOfValuedAssets = 0;
+  let valueOfCostedAssets = 0;
   let valuedCount = 0;
   let unvaluedCount = 0;
+
   for (const a of active) {
     const m = assetMetrics(a, market);
-    if (m.currentValueLkr !== null) {
+    if (m.purchaseCostLkr !== null && Number.isFinite(m.purchaseCostLkr)) {
+      totalCostLkr += m.purchaseCostLkr;
+    }
+    if (m.currentValueLkr !== null && Number.isFinite(m.currentValueLkr)) {
       totalValueLkr += m.currentValueLkr;
       valuedCount++;
-      if (m.purchaseCostLkr !== null) totalCostLkr += m.purchaseCostLkr;
+      if (m.purchaseCostLkr !== null && Number.isFinite(m.purchaseCostLkr)) {
+        costOfValuedAssets += m.purchaseCostLkr;
+        valueOfCostedAssets += m.currentValueLkr;
+      }
     } else {
       unvaluedCount++;
     }
   }
+
+  const gainLkr = costOfValuedAssets > 0 ? valueOfCostedAssets - costOfValuedAssets : 0;
+  const returnPct = costOfValuedAssets > 0 ? (gainLkr / costOfValuedAssets) * 100 : null;
+
   return {
     totalValueLkr,
     totalCostLkr,
@@ -203,7 +214,8 @@ export function statsFor(assets: Asset[], market: MarketSnapshot | null): Portfo
     unvaluedCount,
     activeCount: active.length,
     soldCount: sold.length,
-    gainLkr: totalCostLkr > 0 ? totalValueLkr - totalCostLkr : 0,
+    gainLkr,
+    returnPct,
   };
 }
 

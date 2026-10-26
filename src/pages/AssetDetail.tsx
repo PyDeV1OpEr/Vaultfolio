@@ -423,6 +423,7 @@ function ValuationModal({ open, onClose, asset }: { open: boolean; onClose: () =
   const { updateAsset, pushToast, assets } = useData();
   const current = assets.find((a) => a.id === asset.id) ?? asset;
   const [value, setValue] = useState(String(current.valuation.valueLkr ?? ''));
+  const [valDate, setValDate] = useState(new Date().toISOString().slice(0, 10));
   const [confidence, setConfidence] = useState(current.valuation.confidence);
   const [note, setNote] = useState('');
   return (
@@ -443,6 +444,7 @@ function ValuationModal({ open, onClose, asset }: { open: boolean; onClose: () =
                 pushToast({ kind: 'error', title: 'Enter a valid value' });
                 return;
               }
+              const isoDate = valDate ? new Date(valDate).toISOString() : new Date().toISOString();
               const ok = await updateAsset(
                 asset.id,
                 {
@@ -452,7 +454,7 @@ function ValuationModal({ open, onClose, asset }: { open: boolean; onClose: () =
                     sourceLabel: 'Owner estimate',
                     confidence,
                     note: note.trim() || null,
-                    updatedAt: new Date().toISOString(),
+                    updatedAt: isoDate,
                   },
                 },
                 { valuationRecord: true, valuationNote: note.trim() || undefined },
@@ -473,20 +475,27 @@ function ValuationModal({ open, onClose, asset }: { open: boolean; onClose: () =
           <Field label="Estimated value (LKR)" required>
             <Input type="number" inputMode="decimal" min="0" value={value} onChange={(e) => setValue(e.target.value)} />
           </Field>
-          <Field label="Confidence">
-            <Select value={confidence} onChange={(e) => setConfidence(e.target.value as 'high' | 'medium' | 'low')}>
-              <option value="high">High</option>
-              <option value="medium">Medium</option>
-              <option value="low">Low</option>
-            </Select>
+          <Field label="Valuation date">
+            <Input
+              type="date"
+              value={valDate}
+              onChange={(e) => setValDate(e.target.value)}
+              max={new Date().toISOString().slice(0, 10)}
+            />
           </Field>
         </div>
+        <Field label="Confidence">
+          <Select value={confidence} onChange={(e) => setConfidence(e.target.value as 'high' | 'medium' | 'low')}>
+            <option value="high">High — recent sale or appraisal</option>
+            <option value="medium">Medium — marketplace comparisons</option>
+            <option value="low">Low — rough estimate</option>
+          </Select>
+        </Field>
         <Field label="Why this value?" hint="Recorded with the valuation event.">
-          <Textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. dealer quote, recent comparable sale…" />
+          <Textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. dealer quote, comparable sale, verified weight…" />
         </Field>
         <p className="text-[11px] text-txt-dim">
-          Owner valuations are never overwritten by automated estimates; a market-calculated figure for
-          gold &amp; silver is shown alongside in Overview.
+          Owner valuations are recorded as transparent history. You can view all historical valuations in the chart and log below.
         </p>
       </div>
     </Modal>
@@ -545,12 +554,14 @@ function SoldModal({ open, onClose, asset }: { open: boolean; onClose: () => voi
 function EditModal({ open, onClose, asset }: { open: boolean; onClose: () => void; asset: Asset }) {
   const { updateAsset, pushToast } = useData();
   const [name, setName] = useState(asset.name);
+  const [quantity, setQuantity] = useState(String(asset.quantity ?? 1));
   const [price, setPrice] = useState(String(asset.purchase.priceOriginal ?? ''));
   const [date, setDate] = useState(asset.purchase.date ?? '');
   const [resale, setResale] = useState(String(asset.resaleValueLkr ?? ''));
   const [notes, setNotes] = useState(asset.notes ?? '');
   const reset = () => {
     setName(asset.name);
+    setQuantity(String(asset.quantity ?? 1));
     setPrice(String(asset.purchase.priceOriginal ?? ''));
     setDate(asset.purchase.date ?? '');
     setResale(String(asset.resaleValueLkr ?? ''));
@@ -574,6 +585,7 @@ function EditModal({ open, onClose, asset }: { open: boolean; onClose: () => voi
             onClick={async () => {
               const ok = await updateAsset(asset.id, {
                 name: name.trim() || asset.name,
+                quantity: Math.max(1, parseNum(quantity) ?? 1),
                 purchase: { ...asset.purchase, priceOriginal: parseNum(price), priceLkr: parseNum(price), date: date || null },
                 resaleValueLkr: parseNum(resale),
                 notes: notes || null,
@@ -590,9 +602,16 @@ function EditModal({ open, onClose, asset }: { open: boolean; onClose: () => voi
       }
     >
       <div className="space-y-3">
-        <Field label="Name" required>
-          <Input value={name} onChange={(e) => setName(e.target.value)} />
-        </Field>
+        <div className="grid grid-cols-3 gap-3">
+          <div className="col-span-2">
+            <Field label="Name" required>
+              <Input value={name} onChange={(e) => setName(e.target.value)} />
+            </Field>
+          </div>
+          <Field label="Quantity" hint="Items">
+            <Input type="number" min="1" step="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+          </Field>
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Purchase price (recorded currency)" hint={`Stored as ${asset.purchase.currency ?? 'LKR'}`}>
             <Input type="number" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} />

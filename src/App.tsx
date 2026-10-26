@@ -15,14 +15,40 @@ import { useData as useStore } from './store/dataStore';
 import { EmptyState } from './components/ui';
 import { Link } from 'react-router-dom';
 
+import { Navigate } from 'react-router-dom';
+
+const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
+
 export default function App() {
-  /* Boot once per mount regardless of which gate route is hit first: the
-     standalone /unlock and /onboarding screens render before the AppLayout
-     ever mounts, so they cannot rely on its boot() effect. */
   const boot = useStore((s) => s.boot);
+  const mode = useStore((s) => s.mode);
+  const lock = useStore((s) => s.lock);
+
   useEffect(() => {
     void boot();
   }, [boot]);
+
+  // Inactivity auto-lock: locks vault after 15 minutes of inactivity in local mode
+  useEffect(() => {
+    if (mode !== 'local') return;
+    let timer: ReturnType<typeof setTimeout>;
+
+    const resetTimer = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        lock();
+      }, INACTIVITY_TIMEOUT_MS);
+    };
+
+    resetTimer();
+    const events = ['mousedown', 'keydown', 'touchstart', 'scroll'];
+    events.forEach((ev) => window.addEventListener(ev, resetTimer, { passive: true }));
+
+    return () => {
+      clearTimeout(timer);
+      events.forEach((ev) => window.removeEventListener(ev, resetTimer));
+    };
+  }, [mode, lock]);
 
   return (
     <Routes>
@@ -34,7 +60,7 @@ export default function App() {
         <Route path="/portfolio" element={<Portfolio />} />
         <Route path="/portfolio/:assetId" element={<AssetDetail />} />
         <Route path="/add" element={<AddAsset />} />
-        <Route path="/market" element={<MarketPage />} />
+        <Route path="/market" element={<Navigate to="/portfolio" replace />} />
         <Route path="/insights" element={<Insights />} />
         <Route path="/settings" element={<Settings />} />
         <Route

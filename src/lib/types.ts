@@ -69,7 +69,7 @@ export interface SaleRecord {
 
 /* ---- Category attribute payloads ---- */
 export interface GoldSilverAttrs {
-  metal: 'gold' | 'silver';
+  metal: 'gold' | 'silver' | 'copper' | 'platinum' | 'palladium';
   form: 'bullion' | 'coin' | 'jewelry' | 'other';
   weight: number;
   weightUnit: 'g' | 'kg' | 'ozt' | 'tola';
@@ -142,6 +142,7 @@ export interface Asset {
   userId: string;
   category: AssetCategory;
   name: string;
+  quantity?: number | null;
   status: AssetStatus;
   attributes:
     | GoldSilverAttrs
@@ -210,6 +211,7 @@ export interface PortfolioStats {
   activeCount: number;
   soldCount: number;
   gainLkr: number;
+  returnPct?: number | null;
 }
 
 export interface DemoModeInfo {

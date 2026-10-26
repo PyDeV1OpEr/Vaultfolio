@@ -2,11 +2,16 @@ import { useMemo } from 'react';
 import {
   AlertTriangle,
   Award,
+  BarChart3,
   CheckCircle2,
   CircleHelp,
+  Layers,
   PieChart as PieIcon,
   Scale,
   Sparkles,
+  TrendingDown,
+  TrendingUp,
+  Wallet,
 } from 'lucide-react';
 import { useData } from '../store/dataStore';
 import {
@@ -17,8 +22,14 @@ import {
   statsFor,
 } from '../lib/valuation';
 import { categoryMeta } from '../lib/categories';
-import { formatMoney, formatNumber, formatPercent, parseNum } from '../lib/money';
-import { AllocationDonut, HistoryLine } from '../components/Charts';
+import { formatMoney, formatNumber, formatPercent } from '../lib/money';
+import {
+  AllocationDonut,
+  CategoryBarChart,
+  CostVsValueChart,
+  HistoryLine,
+  TopAssetsBarChart,
+} from '../components/Charts';
 import { Badge, Card, CardHeader, EmptyState } from '../components/ui';
 
 export function Insights() {
@@ -29,269 +40,341 @@ export function Insights() {
   const timeline = useMemo(() => portfolioTimeline(assets, records), [assets, records]);
 
   const fm = (v: number | null) => (v === null ? '—' : formatMoney(v, settings.displayCurrency, usd));
+  const pct = (v: number) => formatPercent(v);
+  const num1 = (v: number) => formatNumber(v, 'en-US', 1);
 
   if (assets.length === 0) {
     return (
-      <EmptyState
-        icon={<Sparkles size={20} />}
-        title="Insights appear once you own assets"
-        body="Add assets and valuations, and this page turns your records into honest analysis — no invented numbers."
-      />
+      <div className="max-w-xl mx-auto pt-8">
+        <Card>
+          <EmptyState
+            icon={<Sparkles size={24} className="text-accent" />}
+            title="Insights appear once you add physical assets"
+            body="Add your assets, purchase records, and estimates. This analytics suite turns your real records into transparent charts, allocation breakdowns, and cost-vs-value comparisons."
+          />
+        </Card>
+      </div>
     );
   }
 
-  const valuedAssets = assets
-    .filter((a) => a.status === 'active' && resolveAssetValuation(a, market).valueLkr !== null)
+  // Active valued assets
+  const activeAssets = assets.filter((a) => a.status === 'active');
+  const valuedAssets = activeAssets
+    .filter((a) => resolveAssetValuation(a, market).valueLkr !== null)
     .sort((a, b) => (assetMetrics(b, market).currentValueLkr ?? 0) - (assetMetrics(a, market).currentValueLkr ?? 0));
-  const top = valuedAssets[0];
-  const newValued = valuedAssets.map((a) => ({ a, v: assetMetrics(a, market).currentValueLkr ?? 0 }));
-  const totalValued = newValued.reduce((s, x) => s + x.v, 0);
 
-  const gains = newValued
-    .map((x) => assetMetrics(x.a, market))
+  const totalValued = valuedAssets.reduce((s, a) => s + (assetMetrics(a, market).currentValueLkr ?? 0), 0);
+  const topAsset = valuedAssets[0] ?? null;
+
+  // Top individual assets for horizontal bar chart (up to 6)
+  const topAssetsData = valuedAssets.slice(0, 6).map((a) => ({
+    name: a.name,
+    valueLkr: assetMetrics(a, market).currentValueLkr ?? 0,
+    category: a.category,
+  }));
+
+  // Cost vs Value comparison data by category
+  const costVsValueData = allocation.map((cat) => {
+    const catAssets = activeAssets.filter((a) => a.category === cat.category);
+    let cost = 0;
+    for (const a of catAssets) {
+      const m = assetMetrics(a, market);
+      if (m.purchaseCostLkr !== null) cost += m.purchaseCostLkr;
+    }
+    return {
+      label: categoryMeta(cat.category).shortLabel,
+      costLkr: cost,
+      valueLkr: cat.valueLkr,
+    };
+  });
+
+  // Gains breakdown
+  const gains = valuedAssets
+    .map((a) => assetMetrics(a, market))
     .filter((m) => m.unrealizedGainLkr !== null);
   const winners = gains.filter((m) => (m.unrealizedGainLkr ?? 0) > 0).length;
-  const losers = gains.length - winners;
+  const losers = gains.filter((m) => (m.unrealizedGainLkr ?? 0) < 0).length;
+  const even = gains.length - winners - losers;
 
   const completeness = stats.activeCount > 0 ? stats.valuedCount / stats.activeCount : 0;
   const concentrationTop = allocation.length > 0 && totalValued > 0 ? allocation[0].valueLkr / totalValued : 0;
 
-  const resaleKnown = newValued.filter((x) => assetMetrics(x.a, market).resaleValueLkr !== null);
-  const resaleTotal = resaleKnown.reduce((s, x) => s + (assetMetrics(x.a, market).resaleValueLkr ?? 0), 0);
+  const resaleKnown = valuedAssets.filter((a) => assetMetrics(a, market).resaleValueLkr !== null);
+  const resaleTotal = resaleKnown.reduce((s, a) => s + (assetMetrics(a, market).resaleValueLkr ?? 0), 0);
 
   const historyReady = timeline.length >= 3;
-  const pct = (v: number) => formatPercent(v);
-  const num1 = (v: number) => formatNumber(v, 'en-US', 1);
 
   return (
-    <div className="max-w-5xl space-y-5 animate-fadeUp">
+    <div className="space-y-6 animate-fadeUp">
       <header>
-        <h1 className="text-xl lg:text-2xl font-semibold">Insights</h1>
+        <h1 className="text-xl lg:text-2xl font-semibold">Portfolio Insights</h1>
         <p className="text-sm text-txt-muted mt-1">
-          Analysis built strictly from your recorded data — nothing backfilled, nothing assumed.
+          Analytics calculated strictly from your genuine recorded data — no synthetic forecasts or fabricated trends.
         </p>
       </header>
 
-      <div className="grid lg:grid-cols-2 gap-4">
-        {/* What's my wealth */}
-        <Card>
-          <CardHeader title="What does your physical wealth look like?" subtitle={`${stats.activeCount} active assets · ${stats.unvaluedCount} unvalued (never counted as zero)`} />
-          <div className="px-5 pb-5 space-y-3">
-            {(top ? [
-              ['Estimated wealth (tracked)', stats.totalValueLkr],
-              ['What you paid', stats.totalCostLkr],
-              ['Paper gain', stats.gainLkr],
-              ['Est. resale today', resaleTotal || null],
-            ] as const : []).map(([label, v]) =>
-              v === null ? null : (
-                <div key={label} className="flex items-center justify-between text-sm">
-                  <span className="text-txt-muted">{label}</span>
-                  <span className="tnum font-medium">{fm(v as number)}</span>
-                </div>
-              ),
-            )}
-            <p className="text-[11px] text-txt-dim">
-              “Paper gain” compares owner estimates against cost and ignores selling costs, taxes and fees. Resale
-              figures cover {resaleKnown.length} of {stats.valuedCount || assets.length} valued assets where you
-              recorded one.
-            </p>
-          </div>
+      {/* KPI Summary Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <Card className="p-4">
+          <p className="text-xs text-txt-muted font-medium">Total Estimated Value</p>
+          <p className="text-xl font-semibold tnum text-txt mt-1.5">{fm(stats.totalValueLkr)}</p>
+          <p className="text-[11px] text-txt-dim mt-1">
+            {stats.valuedCount} of {stats.activeCount} active assets valued
+          </p>
         </Card>
 
-        {/* Distribution */}
+        <Card className="p-4">
+          <p className="text-xs text-txt-muted font-medium">Total Invested Cost</p>
+          <p className="text-xl font-semibold tnum text-txt mt-1.5">{fm(stats.totalCostLkr)}</p>
+          <p className="text-[11px] text-txt-dim mt-1">Sum of recorded purchase prices & fees</p>
+        </Card>
+
+        <Card className="p-4">
+          <p className="text-xs text-txt-muted font-medium">Unrealized Gain / Loss</p>
+          <p
+            className={`text-xl font-semibold tnum mt-1.5 ${
+              stats.gainLkr > 0 ? 'text-emerald-400' : stats.gainLkr < 0 ? 'text-rose-400' : 'text-txt'
+            }`}
+          >
+            {stats.gainLkr > 0 ? '+' : ''}
+            {fm(stats.gainLkr)}
+          </p>
+          <p className="text-[11px] text-txt-dim mt-1">
+            {stats.returnPct !== null && stats.returnPct !== undefined
+              ? `${stats.returnPct >= 0 ? '+' : ''}${num1(stats.returnPct)}% net return`
+              : 'Requires purchase costs'}
+          </p>
+        </Card>
+
+        <Card className="p-4">
+          <p className="text-xs text-txt-muted font-medium">Valuation Completeness</p>
+          <p className="text-xl font-semibold tnum text-txt mt-1.5">{num1(completeness * 100)}%</p>
+          <div className="h-1.5 rounded-full bg-ink-800 mt-2 overflow-hidden">
+            <div
+              className="h-full bg-accent rounded-full transition-all"
+              style={{ width: `${Math.round(completeness * 100)}%` }}
+            />
+          </div>
+        </Card>
+      </div>
+
+      {/* Charts Row 1: Category Bar Chart & Allocation Donut */}
+      <div className="grid lg:grid-cols-2 gap-4">
+        {/* Total Value by Category */}
         <Card>
           <CardHeader
-            title="Where your value sits"
-            subtitle={allocation.length ? 'By category, valued subset only' : 'Needs valuations'}
+            title="Total Value by Category"
+            subtitle="Current estimated wealth by physical asset class"
             action={
               allocation.length > 0 ? (
                 <Badge tone="accent">
-                  <PieIcon size={11} /> {allocation.length} categories
+                  <BarChart3 size={11} className="mr-1" /> {allocation.length} categories
                 </Badge>
               ) : undefined
             }
           />
-          {allocation.length === 0 ? (
-            <p className="px-5 pb-6 text-sm text-txt-muted">No valuations yet — add estimates from asset pages.</p>
-          ) : (
-            <div className="px-5 pb-5">
-              <AllocationDonut data={allocation.slice(0, 7)} displayCurrency={settings.displayCurrency} />
-              <ul className="mt-2 space-y-1.5 text-xs">
-                {allocation.slice(0, 7).map((a) => (
-                  <li key={a.category} className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-sm bg-accent/70" />
-                    <span className="text-txt-muted flex-1 truncate">{categoryMeta(a.category).label}</span>
-                    <span className="text-txt-dim tnum">{pct(totalValued > 0 ? a.valueLkr / totalValued : 0)}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </Card>
-
-        {/* Cost vs value */}
-        <Card>
-          <CardHeader title="Purchase cost vs current estimate" subtitle="Two different numbers, both shown" />
-          <div className="px-5 pb-5 space-y-3">
-            <Meter
-              label="Recorded purchase cost"
-              subV={stats.totalCostLkr}
-              maxV={Math.max(stats.totalCostLkr, stats.totalValueLkr, 1)}
-              tone="muted"
-              fm={fm}
-            />
-            <Meter
-              label="Current estimated value"
-              subV={stats.totalValueLkr}
-              maxV={Math.max(stats.totalCostLkr, stats.totalValueLkr, 1)}
-              tone={stats.gainLkr >= 0 ? 'positive' : 'negative'}
-              fm={fm}
-            />
-            <div className="flex items-center gap-2 text-[12px]">
-              {stats.gainLkr >= 0 ? (
-                <CheckCircle2 size={14} className="text-emerald-400" />
-              ) : (
-                <AlertTriangle size={14} className="text-rose-400" />
-              )}
-              <span className="text-txt-muted">
-                {winners} holding{winners === 1 ? '' : 's'} above cost · {losers} below ·
-                {' '}
-                {stats.gainLkr >= 0 ? 'net estimated gain' : 'net estimated loss'} {fm(Math.abs(stats.gainLkr))}
-              </span>
-            </div>
-          </div>
-        </Card>
-
-        {/* Valuation completeness */}
-        <Card>
-          <CardHeader title="Valuation completeness" subtitle="How much of your portfolio has reliable numbers" />
           <div className="px-5 pb-5">
-            <div className="flex items-end gap-3">
-              <p className="text-3xl font-semibold tnum">{num1(completeness * 100)}%</p>
-              <p className="text-[12px] text-txt-muted pb-1.5">
-                {stats.valuedCount} of {stats.activeCount} active assets valued
+            {allocation.length === 0 ? (
+              <p className="text-sm text-txt-muted py-12 text-center">
+                No valued assets yet. Enter estimated values to generate category bars.
               </p>
-            </div>
-            <div className="h-2.5 rounded-full bg-ink-800 mt-3 overflow-hidden">
-              <div className="h-full bg-accent rounded-full transition-all" style={{ width: `${Math.round(completeness * 100)}%` }} />
-            </div>
-            <p className="text-[11px] text-txt-dim mt-3">
-              {stats.unvaluedCount === 0
-                ? 'Everything active is valued. Keep updating estimates to stay this complete.'
-                : `${stats.unvaluedCount} asset${stats.unvaluedCount === 1 ? '' : 's'} still need an estimate — open them from My Portfolio.`}
-            </p>
+            ) : (
+              <CategoryBarChart data={allocation} displayCurrency={settings.displayCurrency} />
+            )}
           </div>
         </Card>
 
-        {/* Top asset */}
+        {/* Portfolio Allocation Donut */}
         <Card>
-          <CardHeader title="Most valuable asset" subtitle={top ? 'By your current estimates' : 'Once valued'} />
-          {top ? (
-            <div className="px-5 pb-5 flex items-start gap-3">
-              <span className="w-10 h-10 rounded-lg bg-ink-800 border border-ink-700 flex items-center justify-center">
-                {/* eslint-disable-next-line @typescript-eslint/no-non-null-assertion */}
-                {(() => {
-                  const Icon = categoryMeta(top.category).icon;
-                  return <Icon size={18} className="text-accent" />;
-                })()}
-              </span>
-              <div className="min-w-0">
-                <p className="text-sm font-medium truncate">{top.name}</p>
-                <p className="tnum text-lg font-semibold mt-1">{fm(assetMetrics(top, market).currentValueLkr)}</p>
-                <p className="text-[11px] text-txt-dim mt-0.5">
-                  {pct(totalValued > 0 ? (assetMetrics(top, market).currentValueLkr ?? 0) / totalValued : 0)} of valued portfolio ·{' '}
-                  {categoryMeta(top.category).label}
-                </p>
-              </div>
-            </div>
-          ) : (
-            <p className="px-5 pb-6 text-sm text-txt-muted">Add valuations to see your biggest holding.</p>
-          )}
-        </Card>
-
-        {/* Concentration */}
-        <Card>
-          <CardHeader title="Category concentration" subtitle="Concentration cuts both ways — clarity first, not advice" />
-          <div className="px-5 pb-5 space-y-2.5">
-            {allocation.slice(0, 3).map((a, i) => (
-              <div key={a.category} className="flex items-center gap-3">
-                <Award size={i === 0 ? 15 : 13} className={i === 0 ? 'text-accent' : 'text-txt-dim'} />
-                <p className="text-[13px] flex-1 truncate">
-                  {categoryMeta(a.category).label} represents{' '}
-                  <strong className="text-txt">{pct(totalValued > 0 ? a.valueLkr / totalValued : 0)}</strong>{' '}
-                  of your valued assets ({a.count} asset{a.count === 1 ? '' : 's'})
-                </p>
-              </div>
-            ))}
-            {concentrationTop > 0.5 && (
-              <p className="text-[11px] text-amber-400/90 flex gap-1.5 mt-2">
-                <AlertTriangle size={12} className="mt-0.5 shrink-0" />
-                {categoryMeta(allocation[0].category).label} alone is more than half of your valued total.
-                Vaultfolio offers no investment advice — just the fact.
+          <CardHeader
+            title="Portfolio Allocation"
+            subtitle="Percentage distribution of your valued assets"
+            action={
+              allocation.length > 0 ? (
+                <Badge tone="neutral">
+                  <PieIcon size={11} className="mr-1" /> {pct(1)} total
+                </Badge>
+              ) : undefined
+            }
+          />
+          <div className="px-5 pb-5">
+            {allocation.length === 0 ? (
+              <p className="text-sm text-txt-muted py-12 text-center">
+                Add valuations to view portfolio weightings.
               </p>
+            ) : (
+              <>
+                <AllocationDonut data={allocation} displayCurrency={settings.displayCurrency} />
+                <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                  {allocation.map((a) => (
+                    <div key={a.category} className="flex items-center justify-between py-0.5">
+                      <span className="text-txt-muted truncate">{categoryMeta(a.category).label}</span>
+                      <span className="tnum font-medium text-txt ml-2">
+                        {pct(totalValued > 0 ? a.valueLkr / totalValued : 0)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         </Card>
       </div>
 
-      {/* History */}
+      {/* Charts Row 2: Top Assets & Cost vs Value */}
+      <div className="grid lg:grid-cols-2 gap-4">
+        {/* Top Asset Holdings */}
+        <Card>
+          <CardHeader
+            title="Top Asset Holdings"
+            subtitle="Largest individual physical assets by current estimate"
+            action={
+              topAsset ? (
+                <Badge tone="neutral">
+                  Top: {pct(totalValued > 0 ? (assetMetrics(topAsset, market).currentValueLkr ?? 0) / totalValued : 0)}
+                </Badge>
+              ) : undefined
+            }
+          />
+          <div className="px-5 pb-5">
+            {topAssetsData.length === 0 ? (
+              <p className="text-sm text-txt-muted py-12 text-center">
+                Valuations needed to display individual asset weights.
+              </p>
+            ) : (
+              <TopAssetsBarChart data={topAssetsData} displayCurrency={settings.displayCurrency} />
+            )}
+          </div>
+        </Card>
+
+        {/* Cost vs Current Value */}
+        <Card>
+          <CardHeader
+            title="Purchase Cost vs Current Value"
+            subtitle="Compare invested cost against current owner estimates"
+          />
+          <div className="px-5 pb-5">
+            {costVsValueData.length === 0 ? (
+              <p className="text-sm text-txt-muted py-12 text-center">
+                Enter purchase costs and current valuations to compare.
+              </p>
+            ) : (
+              <>
+                <CostVsValueChart data={costVsValueData} displayCurrency={settings.displayCurrency} />
+                <div className="mt-3 flex items-center justify-between text-xs text-txt-dim pt-2 border-t border-ink-800">
+                  <span className="flex items-center gap-1.5 text-emerald-400">
+                    <CheckCircle2 size={13} /> {winners} holding{winners === 1 ? '' : 's'} above cost
+                  </span>
+                  {losers > 0 && (
+                    <span className="flex items-center gap-1.5 text-rose-400">
+                      <AlertTriangle size={13} /> {losers} holding{losers === 1 ? '' : 's'} below cost
+                    </span>
+                  )}
+                  {even > 0 && <span>{even} at break-even</span>}
+                </div>
+              </>
+            )}
+          </div>
+        </Card>
+      </div>
+
+      {/* Historical Valuation Line Chart */}
       <Card>
         <CardHeader
-          title="Portfolio history"
-          subtitle={historyReady ? `${timeline.length} recorded snapshots` : 'Needs three or more recorded snapshots for an honest trend'}
+          title="Recorded Valuation History"
+          subtitle={
+            historyReady
+              ? `${timeline.length} recorded valuation snapshots over time`
+              : 'Requires three or more recorded snapshots for an honest timeline'
+          }
         />
-        {historyReady ? (
-          <div className="px-2 pb-4">
-            <HistoryLine data={timeline} />
-            <p className="text-[11px] text-txt-dim px-3 pb-2">
-              Trend is built only on valuation events you recorded ({timeline.length} snapshots,{' '}
-              {records.length} events). Past recorded values do not guarantee future value.
-            </p>
-          </div>
-        ) : (
-          <div className="px-5 pb-6 flex items-start gap-3">
-            <CircleHelp size={16} className="text-txt-dim mt-0.5" />
-            <p className="text-[13px] text-txt-muted">
-              {timeline.length === 0
-                ? 'No valuation records yet. “Update valuation” on any asset creates one.'
-                : `Only ${timeline.length} snapshot${timeline.length === 1 ? '' : 's'} exist. A line chart of ${timeline.length} point${timeline.length === 1 ? '' : 's'} would sell a false sense of trend — it appears at three.`}
-            </p>
-          </div>
-        )}
+        <div className="px-5 pb-5">
+          {historyReady ? (
+            <>
+              <HistoryLine data={timeline} />
+              <p className="text-[11px] text-txt-dim mt-2">
+                Timeline is generated strictly from timestamped valuation events you recorded. No data is
+                fabricated or interpolated.
+              </p>
+            </>
+          ) : (
+            <div className="flex items-start gap-3 py-6 px-2 text-txt-muted">
+              <CircleHelp size={18} className="text-txt-dim shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-txt">
+                  {timeline.length === 0
+                    ? 'No valuation snapshots recorded yet.'
+                    : `Only ${timeline.length} snapshot${timeline.length === 1 ? '' : 's'} recorded.`}
+                </p>
+                <p className="text-xs text-txt-dim mt-1">
+                  Using “Update valuation” on your assets appends historical snapshots. Once you have at least 3
+                  snapshots across your vault, a trend line appears here.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
       </Card>
 
-      <p className="text-[11px] text-txt-dim flex items-center gap-1.5">
-        <Scale size={12} /> Vaultfolio is a record-keeping and estimation tool — not investment, tax or appraisal advice.
-      </p>
-    </div>
-  );
-}
+      {/* Concentration & Realizability Summary */}
+      <div className="grid lg:grid-cols-2 gap-4">
+        {/* Concentration Analysis */}
+        <Card>
+          <CardHeader
+            title="Asset & Class Concentration"
+            subtitle="Understand portfolio exposure without algorithmic noise"
+          />
+          <div className="px-5 pb-5 space-y-3">
+            {allocation.slice(0, 3).map((a, i) => (
+              <div key={a.category} className="flex items-center gap-3">
+                <Award size={15} className={i === 0 ? 'text-accent' : 'text-txt-dim'} />
+                <p className="text-xs flex-1 truncate">
+                  <strong className="text-txt">{categoryMeta(a.category).label}</strong> represents{' '}
+                  <strong className="text-accent">{pct(totalValued > 0 ? a.valueLkr / totalValued : 0)}</strong>{' '}
+                  of your valued wealth ({a.count} asset{a.count === 1 ? '' : 's'})
+                </p>
+              </div>
+            ))}
+            {concentrationTop > 0.5 && (
+              <div className="rounded-lg border border-amber-500/25 bg-amber-500/10 p-3 flex items-start gap-2.5 text-xs text-amber-300">
+                <AlertTriangle size={15} className="shrink-0 mt-0.5 text-amber-400" />
+                <span>
+                  <strong>High concentration:</strong> {categoryMeta(allocation[0].category).label} accounts for{' '}
+                  {pct(concentrationTop)} of your total valued portfolio.
+                </span>
+              </div>
+            )}
+          </div>
+        </Card>
 
-function Meter({
-  label,
-  subV,
-  maxV,
-  tone,
-  fm,
-}: {
-  label: string;
-  subV: number;
-  maxV: number;
-  tone: 'muted' | 'positive' | 'negative';
-  fm: (v: number | null) => string;
-}) {
-  void parseNum;
-  return (
-    <div>
-      <div className="flex items-center justify-between text-[12px] mb-1">
-        <span className="text-txt-muted">{label}</span>
-        <span className="tnum font-medium">{fm(subV)}</span>
+        {/* Resale Realizability */}
+        <Card>
+          <CardHeader
+            title="Estimated Liquidation & Resale"
+            subtitle="Conservative resale values after dealer spreads and discounts"
+          />
+          <div className="px-5 pb-5 space-y-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-txt-muted">Est. Resale Proceeds (Recorded)</span>
+              <span className="tnum font-medium text-txt">{resaleTotal > 0 ? fm(resaleTotal) : '—'}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-txt-muted">Assets with Resale Estimate</span>
+              <span className="tnum font-medium text-txt">
+                {resaleKnown.length} of {stats.valuedCount} valued assets
+              </span>
+            </div>
+            <p className="text-[11px] text-txt-dim leading-relaxed">
+              Physical assets (especially jewelry, watches, vehicles, and real estate) often liquidate below
+              retail value. Recording conservative dealer resale estimates keeps expectations grounded.
+            </p>
+          </div>
+        </Card>
       </div>
-      <div className="h-2 rounded-full bg-ink-800 overflow-hidden">
-        <div
-          className={`h-full rounded-full ${tone === 'positive' ? 'bg-emerald-500/80' : tone === 'negative' ? 'bg-rose-500/80' : 'bg-ink-500/70'}`}
-          style={{ width: `${Math.max(2, Math.min(100, (subV / maxV) * 100))}%` }}
-        />
+
+      <div className="flex items-center justify-center gap-2 text-xs text-txt-dim pt-2">
+        <Scale size={13} />
+        <span>Vaultfolio provides honest personal estimation and record-keeping — not appraisal, tax, or investment advice.</span>
       </div>
     </div>
   );

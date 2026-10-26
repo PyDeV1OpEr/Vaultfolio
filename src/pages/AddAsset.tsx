@@ -86,6 +86,16 @@ function CurrentEstimateSection({
         <Field label="Estimated value today (LKR)" required>
           <Input type="number" inputMode="decimal" min="0" value={state.estimate ?? ''} onChange={(e) => set('estimate', e.target.value)} placeholder="Your best estimate" />
         </Field>
+        <Field label="Valuation date">
+          <Input
+            type="date"
+            value={state.valuationDate ?? new Date().toISOString().slice(0, 10)}
+            onChange={(e) => set('valuationDate', e.target.value)}
+            max={new Date().toISOString().slice(0, 10)}
+          />
+        </Field>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
         <Field label="How confident are you?">
           <Select value={state.confidence ?? 'medium'} onChange={(e) => set('confidence', e.target.value)}>
             <option value="high">High — checked against recent sales</option>
@@ -93,10 +103,10 @@ function CurrentEstimateSection({
             <option value="low">Low — rough guess</option>
           </Select>
         </Field>
+        <Field label="Estimated resale value (LKR)" hint="Realistic dealer/market liquidation value">
+          <Input type="number" inputMode="decimal" min="0" value={state.resale ?? ''} onChange={(e) => set('resale', e.target.value)} placeholder="Optional" />
+        </Field>
       </div>
-      <Field label="Estimated resale value (LKR)" hint="What a dealer or market would realistically pay (often below retail).">
-        <Input type="number" inputMode="decimal" min="0" value={state.resale ?? ''} onChange={(e) => set('resale', e.target.value)} placeholder="Optional" />
-      </Field>
       {edgeNote}
       {errors.estimate && <p className="text-xs text-rose-400 -mt-1.5">{errors.estimate}</p>}
     </div>
@@ -127,6 +137,7 @@ export function AddAsset() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [name, setName] = useState('');
+  const [quantity, setQuantity] = useState('1');
 
   const set = (k: string, v: string) => setState((s) => ({ ...s, [k]: v }));
 
@@ -193,6 +204,7 @@ export function AddAsset() {
     const assetInput: Omit<Asset, 'id' | 'userId' | 'createdAt' | 'updatedAt'> = {
       category,
       name: name.trim(),
+      quantity: Math.max(1, parseNum(quantity) ?? 1),
       status: 'active',
       attributes: attrs,
       purchase: {
@@ -203,32 +215,12 @@ export function AddAsset() {
         extraCostsLkr: parseNum(state.extraCosts ?? ''),
       },
       valuation: {
-        valueLkr:
-          estimate !== null
-            ? estimate
-            : isGoldSilver
-              ? null // resolved live by the engine from metal content
-              : null,
-        method:
-          estimate !== null
-            ? 'user'
-            : isGoldSilver
-              ? 'calculated'
-              : 'unavailable',
-        sourceLabel:
-          estimate !== null
-            ? 'Owner estimate'
-            : isGoldSilver
-              ? 'Calculated from metal content'
-              : 'Not yet valued',
+        valueLkr: estimate !== null ? estimate : null,
+        method: estimate !== null ? 'user' : 'unavailable',
+        sourceLabel: estimate !== null ? 'Owner estimate' : 'Not yet valued',
         confidence: (state.confidence ?? 'medium') as ValuationConfidence,
-        note:
-          (state.estimateNotes ?? '') !== ''
-            ? state.estimateNotes
-            : state.isDemoAware === 'true'
-              ? 'Demo'
-              : null,
-        updatedAt: new Date().toISOString(),
+        note: (state.estimateNotes ?? '').trim() || null,
+        updatedAt: state.valuationDate ? new Date(state.valuationDate).toISOString() : new Date().toISOString(),
       },
       resaleValueLkr: parseNum(state.resale ?? ''),
       notes: state.notes || null,
@@ -317,9 +309,23 @@ export function AddAsset() {
       </div>
 
       <Card className="mt-5 space-y-6 p-5">
-        <Field label="Asset name" required error={errors.name}>
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g.22k Gold Bangle" maxLength={120} />
-        </Field>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="sm:col-span-2">
+            <Field label="Asset name" required error={errors.name}>
+              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. 22k Gold Bangle" maxLength={120} />
+            </Field>
+          </div>
+          <Field label="Quantity" hint="Items">
+            <Input
+              type="number"
+              min="1"
+              step="1"
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              placeholder="1"
+            />
+          </Field>
+        </div>
 
         <CategoryFields category={category} state={state} set={set} errors={errors} previewValue={previewValue} />
 
@@ -430,6 +436,9 @@ function GoldSilverFields({
           <Select value={metal} onChange={(e) => set('metal', e.target.value)}>
             <option value="gold">Gold</option>
             <option value="silver">Silver</option>
+            <option value="copper">Copper</option>
+            <option value="platinum">Platinum</option>
+            <option value="palladium">Palladium</option>
           </Select>
         </Field>
         <Field label="Form" required>

@@ -38,7 +38,14 @@ export function AssetCard({
           <Icon size={19} />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-txt truncate">{asset.name}</p>
+          <div className="flex items-center gap-1.5">
+            <p className="text-sm font-medium text-txt truncate">{asset.name}</p>
+            {asset.quantity && asset.quantity > 1 && (
+              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-ink-800 text-txt-muted border border-ink-700 shrink-0">
+                ×{asset.quantity}
+              </span>
+            )}
+          </div>
           <p className="text-[11px] text-txt-muted mt-0.5">
             {meta.label}
             {asset.status !== 'active' && ` · ${asset.status.charAt(0).toUpperCase()}${asset.status.slice(1)}`}

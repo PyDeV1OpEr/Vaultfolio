@@ -22,23 +22,24 @@ export interface MetalProvider {
 
 /* ---------------- Demo provider (clearly labeled, not live) ---------------- */
 
+export const DEFAULT_MARKET: MarketSnapshot = {
+  goldPerGramLkr: null,
+  silverPerGramLkr: null,
+  usdLkr: null,
+  sourceLabel: 'Manual valuation only',
+  asOf: new Date().toISOString(),
+  isDemo: false,
+  isLive: false,
+};
+
 export const DEMO_MARKET: MarketSnapshot = {
   goldPerGramLkr: 26_450.0,
   silverPerGramLkr: 108.5,
   usdLkr: 297.5,
-  sourceLabel: 'Demo dataset',
+  sourceLabel: 'Test dataset',
   asOf: '2026-09-30T09:00:00+05:30',
   isDemo: true,
   isLive: false,
-};
-
-const demoProvider: MetalProvider = {
-  id: 'demo',
-  label: 'Demo dataset',
-  isDemo: true,
-  async fetch() {
-    return DEMO_MARKET;
-  },
 };
 
 /* ------------- Configured HTTP provider (opt-in via env) ------------- */
@@ -75,7 +76,7 @@ const httpProvider: MetalProvider = {
   },
 };
 
-const PROVIDERS: MetalProvider[] = [httpProvider, demoProvider];
+const PROVIDERS: MetalProvider[] = [httpProvider];
 
 /* ---------------- Cache & service ---------------- */
 
@@ -113,7 +114,7 @@ export async function loadMarketData(
   for (const p of PROVIDERS) {
     const cached = readCache();
     const cacheFresh = cached && Date.now() - new Date(cached.asOf).getTime() < CACHE_TTL_MS;
-    if (p.id !== 'demo' && cacheFresh && cached && !cached.isDemo) {
+    if (cacheFresh && cached && !cached.isDemo) {
       return applyOverrides(cached, overrides);
     }
     let snap = await p.fetch();
@@ -123,7 +124,7 @@ export async function loadMarketData(
     }
   }
   const cached = readCache();
-  return applyOverrides(cached ?? DEMO_MARKET, overrides);
+  return applyOverrides(cached ?? DEFAULT_MARKET, overrides);
 }
 
 export function applyOverrides(s: MarketSnapshot, o: Partial<Record<ManualPriceOverride['kind'], number>>): MarketSnapshot {

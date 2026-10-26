@@ -2,9 +2,9 @@
 
 **A private, physical-asset wealth tracker — record, value, and understand what you actually own.**
 
-Vaultfolio is a personal wealth-tracking web app (wrapped into native desktop apps with Tauri) for people who hold physical assets instead of — or alongside — financial instruments. It tracks **gold & silver (bullion, coins, jewelry), gems & jewelry, watches, land & property, cars, motorcycles, and other assets**, organises each asset's physical facts, records honest valuations with an explicit methodology and confidence level, and rolls everything up into a portfolio overview with allocation and historical trends.
+Vaultfolio is a personal wealth-tracking web and desktop application (wrapped into native desktop apps with Tauri v2) for tracking physical wealth: **precious metals (gold, silver, copper, platinum, palladium), gemstones & jewelry, luxury watches, land & property (with Sri Lankan perches), cars, motorcycles, and other physical assets**. It organizes each asset's physical attributes, records honest manual valuations with an explicit methodology, and rolls everything up into a portfolio overview with deep analytics and historical snapshots.
 
-> Values are your own estimates plus transparent calculations — **not appraisals, dealer quotes, or financial advice.**
+> Values are your own verified estimates — **never fabricated market quotes, synthetic appraisals, or financial advice.** Vaultfolio is strictly offline-first with zero demo wealth.
 
 ```sh
 # quickstart (web, local — no account or keys needed)
@@ -17,11 +17,11 @@ npm run dev            # → http://localhost:5173 — create your private vault
 <p align="center">
   <img src="docs/screenshots/overview-dashboard.png" alt="Vaultfolio overview dashboard" width="760" />
 </p>
-*Overview dashboard in demo mode: valuation breakdown, top gainers, and a compact view of all relevant categories.*
+*Overview dashboard: truthful portfolio totals, invested cost, unrealized gain/loss, and compact category distribution.*
 
 ## 🖥 Download Vaultfolio
 
-Vaultfolio runs unchanged in any modern browser — the desktop apps are simply a native wrapper around the same build:
+Vaultfolio runs unchanged in any modern browser — the desktop apps are a native Tauri v2 wrapper around the same secure build:
 
 | Platform | Package | Arch | Download |
 |---|---|---|---|
@@ -31,40 +31,43 @@ Vaultfolio runs unchanged in any modern browser — the desktop apps are simply 
 
 Installing from a `.dmg`: open the file and drag **Vaultfolio.app** into `Applications`. Installing from the `.exe`: download, run the setup, and follow the NSIS wizard.
 
-> **First public installers are not yet published.** The release workflow (`.github/workflows/release.yml`) is in place and the macOS builds have been verified locally; once a `v*` tag is pushed, the artifacts land at the URLs above and this table will be updated with exact filenames. Until then, running from source (setup below) is the supported way to use Vaultfolio.
+> **Release builds & installers**: The release workflow (`.github/workflows/release.yml`) builds and publishes native packages on every `v*` tag. Apple Silicon `.dmg` has been built and verified locally (`Vaultfolio_1.0.0_aarch64.dmg`, 2.8 MB).
 
 ### Unsigned-build security warnings
 
-Release installers are currently **unsigned** (no Apple notarization / Windows Authenticode certificate is configured). That is expected for an initial open-source release:
+Release installers are currently **unsigned** (no Apple Developer ID / Windows Authenticode certificate configured). That is standard for open-source releases:
 
-* **macOS**: on first launch, right-click the app and choose **Open** → **Open** to confirm. `xattr -cr /Applications/Vaultfolio.app` also clears Gatekeeper for a specific copy. This is local-only and does not change system security settings.
-* **Windows**: Microsoft Defender SmartScreen will show "Windows protected your PC" — click **More info** → **Run anyway**. SmartScreen still works normally for other apps.
+* **macOS**: on first launch, right-click the app and choose **Open** → **Open** to confirm. `xattr -cr /Applications/Vaultfolio.app` clears Gatekeeper for your local installation.
+* **Windows**: Microsoft Defender SmartScreen will show "Windows protected your PC" — click **More info** → **Run anyway**.
 
 ## ✨ Features
 
 | Area | Feature | Status |
 |---|---|---|
-| Assets | Create, edit, archive, and delete assets across 7 categories | ✅ Implemented |
-| Assets | Category-specific attribute forms (karat/fineness, purity units, mileage, perches, etc.) | ✅ Implemented |
+| Assets | Create, edit, search, filter, sort, and delete assets across 7 physical categories | ✅ Implemented |
+| Assets | Physical categories: Precious Metals (gold, silver, copper, platinum, palladium), Gems & Jewelry, Luxury Watches, Land & Property (perches), Cars & Motorcycles, Other | ✅ Implemented |
+| Assets | Category-specific fields (karat/fineness, weight, quantity, perches, mileage, VIN, valuation date) | ✅ Implemented |
 | Assets | Sold / restore-from-sold lifecycle with sale proceeds and realized gain | ✅ Implemented |
-| Valuation | Transparent fine-metal calculation (weight × purity × market price) | ✅ Implemented |
-| Valuation | Explicit valuation-method ladder: `live_market → recent_market → calculated → user → indicative → unavailable` | ✅ Implemented |
+| Valuation | Honest manual-first valuation engine — zero fake wealth, zero synthetic demo prices | ✅ Implemented |
+| Valuation | Truthful gain/loss and return % calculated strictly from assets with both purchase price and current valuation | ✅ Implemented |
 | Valuation | User-entered valuations are authoritative and never auto-overwritten | ✅ Implemented |
-| Valuation | Append-only valuation history (per-asset turnover log) | ✅ Implemented |
-| Market data | Gold (LKR/g), silver (LKR/g), USD/LKR — demo dataset by default | ✅ Implemented |
-| Market data | Optional configurable HTTP provider (`VITE_METALS_API_URL`) | ✅ Implemented (Requires Configuration) |
-| Market data | Per-user manual price overrides that always win | ✅ Implemented |
-| Analytics | Portfolio totals, allocation by category, gain/loss, valuation timeline | ✅ Implemented |
+| Valuation | Append-only valuation history per asset with valuation date tracking | ✅ Implemented |
+| Insights | **Category Value Bar Chart**: distribution across physical categories | ✅ Implemented |
+| Insights | **Portfolio Allocation Donut**: percentage breakdown by category | ✅ Implemented |
+| Insights | **Top Holdings Horizontal Bar Chart**: highest-value physical holdings | ✅ Implemented |
+| Insights | **Cost vs Value Grouped Comparison**: invested cost vs current valuation | ✅ Implemented |
+| Insights | **Valuation History Timeline**: net portfolio value over time from genuine snapshots | ✅ Implemented |
+| Insights | **Concentration Risk & Resale Analysis**: portfolio risk callouts & fine metal liquidation estimates | ✅ Implemented |
 | Data | CSV + JSON export of your records from Settings | ✅ Implemented |
-| Data | **Backup & restore**: versioned, portable manifest; optional AES-256-GCM passphrase encryption | ✅ Implemented |
+| Data | **Backup & restore**: versioned portable manifest, optional AES-256-GCM + scrypt encryption, integrity validation, and explicit confirmation modal before restore | ✅ Implemented |
 | Security | **Offline-first local vault**: portfolio encrypted at rest (AES-256-GCM), password-only unlock | ✅ Implemented |
-| Security | Device **PIN unlock** (4/6 digits), change/remove from Settings | ✅ Implemented |
-| Security | Persisted brute-failure counters — 5 wrong attempts lock the vault for 5 minutes, surviving app restarts | ✅ Implemented |
-| Security | **PIN recovery** via username + master password verification | ✅ Implemented |
-| Auth | Email/password sign-in via Supabase Auth (sessions auto-refresh) — optional alternative to the local vault | ✅ Implemented (Requires Configuration) |
-| Sync | Cloud sync of assets + valuation records | ✅ Implemented (Requires Configuration) |
-| Persistence | Offline vault stored encrypted in the browser's local storage (or Tauri WebView storage); cloud mode uses Supabase Postgres | ✅ Implemented |
-| Desktop | Tauri v2 packaging for macOS (arm64 + Intel) and Windows x64 | ✅ Implemented |
+| Security | **6-digit PIN unlock**: required at launch, window lock, and 15-minute inactivity auto-lock | ✅ Implemented |
+| Security | Persisted brute-force prevention — 5 wrong PIN attempts trigger a 5-minute lockout surviving app restarts | ✅ Implemented |
+| Security | **In-app PIN recovery** via account username + master password verification | ✅ Implemented |
+| Auth | Optional email/password sign-in via Supabase Auth | ✅ Implemented (Requires Configuration) |
+| Sync | Optional cloud sync of assets + valuation records | ✅ Implemented (Requires Configuration) |
+| Persistence | Offline vault stored encrypted in browser storage / Tauri WebView storage | ✅ Implemented |
+| Desktop | Tauri v2 packaging for macOS (Apple Silicon + Intel) and Windows x64 | ✅ Implemented |
 | Desktop signing | Apple notarization / Windows Authenticode | 🔜 Planned (needs certs) |
 | Images | Asset photos to Supabase Storage | 🔜 Planned |
 
@@ -116,7 +119,7 @@ cp .env.example .env
 npm run dev
 ```
 
-You're done when the app opens at **http://localhost:5173** — Vaultfolio shows its **onboarding** screen: choose a username and a master password and your private, offline-first vault is created on this device. Everything you add is stored **AES-256-GCM encrypted** under that password and never leaves the machine. On any restart the vault opens on a **lock screen**; a 4/6-digit device PIN can be enabled for quick unlocking.
+You're done when the app opens at **http://localhost:5173** — Vaultfolio shows its **onboarding** screen: choose a username, master password, and a 6-digit PIN. Your private, offline-first vault is created on this device. Everything you add is stored **AES-256-GCM encrypted** under that password and never leaves the machine. On any restart, lock event, or after 15 minutes of inactivity, the vault opens on the **6-digit PIN unlock screen** with rate-limiting and in-app PIN recovery.
 
 > The master password cannot be recovered — lost password means lost vault. Export an encrypted backup (Settings → Backup & restore) for safety.
 

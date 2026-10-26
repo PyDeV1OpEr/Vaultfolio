@@ -92,6 +92,7 @@ interface DataState {
     password: string;
     displayName?: string | null;
     currency?: 'LKR' | 'USD';
+    pin?: string | null;
   }) => Promise<string | null>;
   unlockWithPassword: (password: string) => Promise<string | null>;
   unlockWithPin: (pin: string) => Promise<string | null>;
@@ -215,6 +216,9 @@ export const useData = create<DataState>((set, get) => {
         set({ profileName: input.username.trim() });
         if (input.currency) get().setSettings({ displayCurrency: input.currency });
         if (input.displayName) get().setSettings({ ownerName: input.displayName });
+        if (input.pin) {
+          profiles.registerPin(input.pin, fresh);
+        }
         await startLocalSession(fresh);
         return null;
       } catch (err) {

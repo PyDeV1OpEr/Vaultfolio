@@ -79,7 +79,7 @@ export function UnlockScreen() {
     navigate('/', { replace: true });
   };
 
-  const digits = pinLength() ?? 4;
+  const digits = pinLength() ?? 6;
 
   return (
     <div className="min-h-screen bg-ink-950 flex items-center justify-center px-4">
@@ -174,13 +174,16 @@ export function UnlockScreen() {
                 <Field label="Master password" required>
                   <Input type="password" required value={recPassword} onChange={(e) => setRecPassword(e.target.value)} autoComplete="current-password" />
                 </Field>
-                <Field label="New PIN (4 or 6 digits)" required>
+                <Field label="New 6-digit PIN" required>
                   <Input
                     type="password"
                     inputMode="numeric"
+                    pattern="^\d{6}$"
+                    maxLength={6}
                     required
                     value={recPin}
-                    onChange={(e) => setRecPin(e.target.value.replace(/\D/g, ''))}
+                    onChange={(e) => setRecPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="••••••"
                     className="text-center tracking-[0.5em]"
                     autoComplete="off"
                   />

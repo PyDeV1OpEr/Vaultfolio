@@ -19,7 +19,6 @@ import { categoryMeta } from '../lib/categories';
 import { formatMoney, formatPercent, relativeTime } from '../lib/money';
 import { AllocationDonut, HistoryLine } from '../components/Charts';
 import { Button, Card, CardHeader, EmptyState, Skeleton } from '../components/ui';
-import { DEMO_MARKET } from '../lib/market';
 
 export function Overview() {
   const { assets, market, settings, marketLoading, refreshMarket, records } = useData();
@@ -225,19 +224,13 @@ export function Overview() {
         </Card>
 
         <Card>
-          <CardHeader title="Quick actions" subtitle="Jump straight in" />
+          <CardHeader title="Quick actions" subtitle="Manage your wealth" />
           <div className="px-4 pb-4 grid grid-rows-4 gap-2">
             <QuickAction to="/add" icon={<Plus size={15} />} label="Add an asset" />
-            <QuickAction to="/portfolio" icon={<Wallet size={15} />} label="View portfolio" />
-            <QuickAction to="/market" icon={<RefreshCw size={15} />} label="Update valuations" />
-            <QuickAction to="/insights" icon={<BarChart3 size={15} />} label="View insights" />
+            <QuickAction to="/portfolio" icon={<Wallet size={15} />} label="View asset portfolio" />
+            <QuickAction to="/insights" icon={<BarChart3 size={15} />} label="View portfolio analytics" />
+            <QuickAction to="/settings" icon={<Vault size={15} />} label="Backup & security" />
           </div>
-          {marketData?.isDemo && (
-            <p className="text-[11px] text-amber-400/80 px-4 pb-4">
-              Prices under demo placeholder: LKR {DEMO_MARKET.goldPerGramLkr?.toLocaleString()}/g gold —
-              enter real prices in Market &amp; Valuations.
-            </p>
-          )}
         </Card>
       </div>
     </div>
@@ -289,34 +282,20 @@ function QuickAction({ to, icon, label }: { to: string; icon: React.ReactNode; l
 }
 
 function Onboarding() {
-  const { busy, loadSampleData } = useData();
-  const isDev = import.meta.env.DEV === true;
   return (
-    <Card className="mt-6">
+    <Card className="mt-8">
       <EmptyState
-        icon={<Sparkles size={22} />}
-        title="Welcome to Vaultfolio"
-        body="Track what your physical wealth is worth — gold, gems, watches, land, vehicles and anything else you own. Values stay private and estimations are always labeled."
+        icon={<Sparkles size={24} className="text-accent" />}
+        title="Welcome to your private vault"
+        body="Track your physical wealth — gold & precious metals, gemstones & jewelry, luxury watches, land & property, vehicles, and collectibles. All valuations are owner estimates, stored encrypted on this device."
         action={
-          <div className="flex flex-col sm:flex-row gap-2">
-            <Link to="/add">
-              <Button variant="primary">
-                <Plus size={15} /> Add your first asset
-              </Button>
-            </Link>
-            {isDev && (
-              <Button onClick={() => void loadSampleData()} disabled={busy}>
-                {busy ? 'Loading…' : 'Load sample data (dev)'}
-              </Button>
-            )}
-          </div>
+          <Link to="/add">
+            <Button variant="primary" className="px-6 py-2.5">
+              <Plus size={16} /> Add your first asset
+            </Button>
+          </Link>
         }
       />
-      {isDev && (
-        <p className="text-[11px] text-txt-dim text-center pb-6 -mt-2">
-          Dev-only sample dataset, clearly labeled. Never shown in production builds.
-        </p>
-      )}
     </Card>
   );
 }
