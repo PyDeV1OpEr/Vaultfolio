@@ -7,11 +7,11 @@ Vaultfolio is a personal wealth-tracking web app (wrapped into native desktop ap
 > Values are your own estimates plus transparent calculations — **not appraisals, dealer quotes, or financial advice.**
 
 ```sh
-# quickstart (web, local)
+# quickstart (web, local — no account or keys needed)
 git clone https://github.com/PyDeV1OpEr/Vaultfolio.git
 cd Vaultfolio
 npm ci
-npm run dev            # → http://localhost:5173 — demo mode, sample data
+npm run dev            # → http://localhost:5173 — create your private vault
 ```
 
 <p align="center">
@@ -56,9 +56,14 @@ Release installers are currently **unsigned** (no Apple notarization / Windows A
 | Market data | Per-user manual price overrides that always win | ✅ Implemented |
 | Analytics | Portfolio totals, allocation by category, gain/loss, valuation timeline | ✅ Implemented |
 | Data | CSV + JSON export of your records from Settings | ✅ Implemented |
-| Auth | Email/password sign-in via Supabase Auth (sessions auto-refresh) | ✅ Implemented (Requires Configuration) |
+| Data | **Backup & restore**: versioned, portable manifest; optional AES-256-GCM passphrase encryption | ✅ Implemented |
+| Security | **Offline-first local vault**: portfolio encrypted at rest (AES-256-GCM), password-only unlock | ✅ Implemented |
+| Security | Device **PIN unlock** (4/6 digits), change/remove from Settings | ✅ Implemented |
+| Security | Persisted brute-failure counters — 5 wrong attempts lock the vault for 5 minutes, surviving app restarts | ✅ Implemented |
+| Security | **PIN recovery** via username + master password verification | ✅ Implemented |
+| Auth | Email/password sign-in via Supabase Auth (sessions auto-refresh) — optional alternative to the local vault | ✅ Implemented (Requires Configuration) |
 | Sync | Cloud sync of assets + valuation records | ✅ Implemented (Requires Configuration) |
-| Persistence | Demo mode stores data locally in the browser; cloud mode uses Supabase Postgres | ✅ Implemented |
+| Persistence | Offline vault stored encrypted in the browser's local storage (or Tauri WebView storage); cloud mode uses Supabase Postgres | ✅ Implemented |
 | Desktop | Tauri v2 packaging for macOS (arm64 + Intel) and Windows x64 | ✅ Implemented |
 | Desktop signing | Apple notarization / Windows Authenticode | 🔜 Planned (needs certs) |
 | Images | Asset photos to Supabase Storage | 🔜 Planned |
@@ -111,7 +116,9 @@ cp .env.example .env
 npm run dev
 ```
 
-You're done when the app opens at **http://localhost:5173** — Vaultfolio starts in **demo mode** with a sample portfolio, clearly labelled with a banner. Demo data lives only in your browser (`localStorage`) and never leaves it.
+You're done when the app opens at **http://localhost:5173** — Vaultfolio shows its **onboarding** screen: choose a username and a master password and your private, offline-first vault is created on this device. Everything you add is stored **AES-256-GCM encrypted** under that password and never leaves the machine. On any restart the vault opens on a **lock screen**; a 4/6-digit device PIN can be enabled for quick unlocking.
+
+> The master password cannot be recovered — lost password means lost vault. Export an encrypted backup (Settings → Backup & restore) for safety.
 
 ### Useful scripts
 
@@ -138,7 +145,7 @@ You're done when the app opens at **http://localhost:5173** — Vaultfolio start
     VITE_SUPABASE_ANON_KEY=<anon-key>
     ```
 
-6. Restart `npm run dev` — the demo banner disappears and the **Sign in** page appears; create an account with email + password and everything else works identically.
+6. Restart `npm run dev` — the onboarding screen now offers **“Sign in with Supabase instead”**; sign in with email + password and everything else works identically. Cloud mode and an offline local vault can coexist on the same device; cloud sign-in is remembered across restarts.
 
 The **anon key is public by design** — it appears inside the bundled app and it's safe. Row-Level Security on the database is the real perimeter, confining each account to its own rows.
 
@@ -162,14 +169,19 @@ src/
 │   ├── units.ts        # weight/purity/currency unit conversions
 │   ├── money.ts        # LKR/USD formatting, currency facts
 │   ├── market.ts       # market-data service: demo + HTTP provider, cache, overrides
-│   ├── demo.ts         # sample portfolio & seed data
-│   ├── storage.ts      # storage adapters (LocalStorage adapter + Supabase adapter)
+│   ├── crypto.ts       # scrypt KEKs, AES-256-GCM AEAD, password verifiers (@noble)
+│   ├── profile.ts      # local profile: DEK wraps, PIN lifecycle, attempt counters
+│   ├── storage.ts      # adapters: EncryptedLocalAdapter + SupabaseAdapter
+│   ├── backup.ts       # versioned backup manifest (optional passphrase encryption)
+│   ├── demo.ts         # sample portfolio (dev-only seeding)
 │   └── supabase.ts     # optional Supabase client (mode-less, lazy)
 ├── store/
-│   └── dataStore.ts    # Zustand store: mode detection, CRUD, overrides, toasts
+│   └── dataStore.ts    # Zustand store: boot → onboarding/locked/unlocked, CRUD, toasts
 ├── components/       # presentational + layout components, shared UI
-├── pages/            # route screens (Overview, Portfolio, Market, Insights, Settings)
-├── App.tsx           # router + providers
+├── pages/            # route screens (Onboarding, Unlock, Overview, Portfolio, Market,
+│                     #   Insights, Settings, Auth)
+├── *.test.ts         # unit tests (crypto, profile, backup, valuation, money, units)
+├── App.tsx           # router + boot + providers
 └── main.tsx          # entry
 supabase/
 └── schema.sql        # live schema (tables + RLS), extracted from the real project
@@ -182,32 +194,34 @@ docs/
 src-tauri/           # Tauri v2 shell (config, icons, Rust entrypoint)
 ```
 
-**Where to look to change things:** adding an asset category → `src/lib/types.ts` + `AddAsset` + `dataStore`; changing valuation math → `src/lib/valuation.ts` (pure functions, tested); changing market data → `src/lib/market.ts`; persisting new fields → `src/lib/storage.ts` + `supabase/schema.sql`; new screens → `src/pages` + router in `App.tsx`; desktop builds → `src-tauri`.
+**Where to look to change things:** adding an asset category → `src/lib/types.ts` + `AddAsset` + `dataStore`; changing valuation math → `src/lib/valuation.ts` (pure functions, tested); changing market data → `src/lib/market.ts`; **vault/security behavior → `src/lib/profile.ts` + `src/lib/crypto.ts` (tested)**; **backup format → `src/lib/backup.ts` (tested)**; persisting new fields → `src/lib/storage.ts` + `supabase/schema.sql`; new screens → `src/pages` + router in `App.tsx`; desktop builds → `src-tauri`.
 
 ## 📈 Frequently asked questions
 
 **Is Vaultfolio free?** Yes, and the code is open source (MIT).
 
-**Does the app run offline?** Demo mode keeps working offline because it only needs the browser; the Tauri app bundles the whole runtime. Cloud sync obviously needs a connection. Live prices need a connection as well.
+**Does the app run offline?** Yes — the offline-first local vault needs no network at all (no account, no keys, no prices feed). Cloud sync obviously needs a connection. Live prices need a connection as well.
 
-**Where is my data?** Demo: your browser's local storage. Cloud: your own Supabase project under Supabase's policies, scoped per account by RLS. Vaultfolio ships no analytics, no cookies, no third-party trackers.
+**Where is my data?** Offline mode: encrypted inside your browser's/local app's storage (localStorage in web; the Tauri WebView profile on desktop), keyed to this device only. Cloud: your own Supabase project under Supabase's policies, scoped per account by RLS. Vaultfolio ships no analytics, no cookies, no third-party trackers.
 
-**Is my financial data private?** Vaultfolio doesn't see it: there is no Vaultfolio server; the app talks directly to Supabase (auth URL + anon key are compiled into the client). Demo-mode data never leaves the device.
+**Is my financial data private?** In offline mode the vault is AES-256-GCM encrypted at rest and only decrypts with your master password or device PIN — the app holds no keys at rest. Cloud mode works against your own Supabase project; the app talks directly to Supabase (auth URL + anon key are compiled into the client). Encrypted backups are not readable without their passphrase.
 
 **Can I use it as a day-trader tool?** No — Vaultfolio is explicitly a wealth-organising and valuation-honesty tool for long-held assets; it is not a market-timing, trading, or financial-ad vise platform.
 
 ## 🔒 Security & privacy
 
-* **Perimeter**: Supabase Auth (email/password) + Postgres **Row Level Security** — every table policy reads `auth.uid() = user_id`, so a user can only ever touch their own rows. Extracted schema in [`supabase/schema.sql`](supabase/schema.sql).
+* **Offline-first vault**: your portfolio is AES-256-GCM encrypted at rest with a random 256-bit key (DEK). The DEK is never stored in plaintext: it is wrapped under an scrypt-derived master-password key and (optionally) a separately-wrapped PIN key — so changing the password re-wraps only the key, not the data. Passwords/PINs are stored only as salted scrypt verifiers. Failed-attempt counters persist across restarts. Details in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [SECURITY.md](SECURITY.md).
+* **Encrypted backups** (`Settings → Backup & restore`) are ciphertext-bound to their passphrase; unencrypted backups are portable JSON for your own storage.
+* **Cloud perimeter**: Supabase Auth (email/password) + Postgres **Row Level Security** — every table policy reads `auth.uid() = user_id`, so a user can only ever touch their own rows. Extracted schema in [`supabase/schema.sql`](supabase/schema.sql).
 * **Secrets**: the Supabase anon key is a *public* client-side key. There are no Vaultfolio-held secrets, no telemetry, and the `VITE_*` variables are plain client-side configuration.
 * **Reporting**: see [SECURITY.md](SECURITY.md) — please don't report a suspected credential leak by opening a public issue.
-* **Honest limits**: no end-to-end encryption, no pg schema encryption, no audit log — see the limitations in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+* **Honest limits**: the local vault protects against casual data-at-rest snooping on an unattended machine — not against malware running as your user or an attacker with disk-forensics tooling; there is no end-to-end encryption in cloud mode, no audit log — see the limitations in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## 🧪 Testing & quality
 
 ```bash
 npm run typecheck   # strict TypeScript, no loose any
-npm run test        # 14 unit tests (valuation math, money, units)
+npm run test        # 40 unit tests (crypto, profile/PIN, backups, valuation math, money, units)
 npm run build       # production build must typecheck first (tsc && vite build)
 ```
 

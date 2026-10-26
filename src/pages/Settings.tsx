@@ -1,13 +1,18 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   Database,
   Download,
   FileJson,
   Info,
+  KeyRound,
   Lock,
   LogIn,
+  PackageOpen,
   RefreshCw,
   RotateCcw,
+  ShieldCheck,
+  Trash2,
+  Upload,
   User as UserIcon,
 } from 'lucide-react';
 import { useData } from '../store/dataStore';
@@ -15,14 +20,31 @@ import { SUPPORTED_CURRENCIES, downloadTextFile } from '../lib/money';
 import { categoryMeta } from '../lib/categories';
 import { supabaseConfigured } from '../lib/supabase';
 import { DEMO_MARKET } from '../lib/market';
+import { MAX_PIN_FAILURES } from '../lib/profile';
 import { Badge, Button, Card, CardHeader, Field, Input, Modal, Select } from '../components/ui';
 import type { CurrencyCode } from '../lib/types';
 
 export function Settings() {
-  const { settings, setSettings, assets, records, market, mode, resetDemo, signOut, userEmail } = useData();
+  const {
+    settings, setSettings, assets, records, market, mode, signOut, userEmail,
+    hasPin, pinLength, registerPin, changePin, removePin, changePassword, lock,
+    exportBackup, restoreBackup, wipeVault, loadSampleData, pushToast,
+  } = useData();
   const [exportOpen, setExportOpen] = useState(false);
-  const [resetOpen, setResetOpen] = useState(false);
+  const [wipeOpen, setWipeOpen] = useState(false);
   const [includePrivate, setIncludePrivate] = useState(false);
+
+  /* security form state (local mode only) */
+  const [pinForm, setPinForm] = useState({ pin: '', confirm: '' });
+  const [pinChange, setPinChange] = useState({ current: '', next: '' });
+  const [pwChange, setPwChange] = useState({ current: '', next: '', confirm: '' });
+  const [secErr, setSecErr] = useState<string | null>(null);
+
+  /* backup state */
+  const [backupPass, setBackupPass] = useState('');
+  const [restorePass, setRestorePass] = useState('');
+  const [restoreFile, setRestoreFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const configStatus = useMemo(
     () => ({
@@ -95,11 +117,11 @@ export function Settings() {
               </span>
             ) : (
               <span className="flex items-center gap-2">
-                <UserIcon size={14} /> Profile (demo mode)
+                <UserIcon size={14} /> Profile (offline vault)
               </span>
             )
           }
-          subtitle={mode === 'cloud' ? userEmail ?? '' : 'Local demo session — no account exists'}
+          subtitle={mode === 'cloud' ? userEmail ?? '' : 'Local session — encrypted on this device'}
         />
         <div className="px-5 pb-5 grid sm:grid-cols-2 gap-3">
           <Field label="Your name" hint="Used for greeting; never leaves your records.">
@@ -161,17 +183,273 @@ export function Settings() {
         </div>
       </Card>
 
-      {/* Demo mode controls */}
-      {mode === 'demo' && (
-        <Card className="border-violet-500/25">
-          <CardHeader title="Demo mode" subtitle="Sample data lives only in this browser" />
-          <div className="px-5 pb-5 flex flex-wrap gap-2">
-            <Button onClick={() => setResetOpen(true)}>
-              <RotateCcw size={14} /> Reset demo data
-            </Button>
-            <p className="text-[11px] text-txt-dim self-center">
-              Resets to a fresh sample set and clears everything you added in demo mode.
-            </p>
+      {/* Security & lock (local offline mode) */}
+      {mode === 'local' && (
+        <Card>
+          <CardHeader
+            title={
+              <span className="flex items-center gap-2">
+                <ShieldCheck size={14} /> Security &amp; Lock
+              </span>
+            }
+            subtitle="The vault on this device: master password, optional PIN, quick lock"
+          />
+          <div className="px-5 pb-5 space-y-4">
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={() => lock()}>
+                <Lock size={14} /> Lock vault now
+              </Button>
+              <span className="text-[11px] text-txt-dim self-center">
+                Clears the decryption key from memory; reopen with your password{hasPin() ? ' or PIN' : ''}.
+              </span>
+            </div>
+
+            {/* PIN lifecycle */}
+            {hasPin() ? (
+              <div className="rounded-lg border border-ink-700 bg-ink-900/60 p-3.5 space-y-3">
+                <p className="text-[12px] font-medium text-txt flex items-center gap-2">
+                  <KeyRound size={13} className="text-accent" /> Device PIN — {pinLength()}-digit
+                </p>
+                <div className="grid sm:grid-cols-3 gap-2 items-end">
+                  <Field label="Current PIN">
+                    <Input
+                      type="password"
+                      inputMode="numeric"
+                      value={pinChange.current}
+                      onChange={(e) => setPinChange({ ...pinChange, current: e.target.value.replace(/\D/g, '') })}
+                      autoComplete="off"
+                    />
+                  </Field>
+                  <Field label="New PIN (4 or 6 digits)">
+                    <Input
+                      type="password"
+                      inputMode="numeric"
+                      value={pinChange.next}
+                      onChange={(e) => setPinChange({ ...pinChange, next: e.target.value.replace(/\D/g, '') })}
+                      autoComplete="off"
+                    />
+                  </Field>
+                  <Button
+                    onClick={async () => {
+                      setSecErr(null);
+                      const res = await changePin(pinChange.current, pinChange.next);
+                      if (res) setSecErr(res);
+                      else {
+                        setPinChange({ current: '', next: '' });
+                        pushToast({ kind: 'success', title: 'PIN changed' });
+                      }
+                    }}
+                    disabled={!pinChange.current || (pinChange.next.length !== 4 && pinChange.next.length !== 6)}
+                  >
+                    Change PIN
+                  </Button>
+                </div>
+                <div>
+                  <Button
+                    variant="ghost"
+                    className="text-xs"
+                    onClick={async () => {
+                      setSecErr(null);
+                      const res = await removePin(pinChange.current);
+                      if (res) setSecErr(res);
+                      else {
+                        setPinChange({ current: '', next: '' });
+                        pushToast({ kind: 'success', title: 'PIN removed — password unlocks the vault' });
+                      }
+                    }}
+                    disabled={!pinChange.current}
+                  >
+                    Remove PIN
+                  </Button>
+                  <span className="text-[11px] text-txt-dim ml-2">Requires the current PIN.</span>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-ink-700 bg-ink-900/60 p-3.5 space-y-3">
+                <p className="text-[12px] font-medium text-txt flex items-center gap-2">
+                  <KeyRound size={13} className="text-accent" /> Add a device PIN
+                </p>
+                <p className="text-[11px] text-txt-dim">
+                  A {MAX_PIN_FAILURES}-attempt PIN keeps casual snoopers out while your master password stays
+                  sealed underneath. The PIN wraps the same key — changing your password later won’t
+                  invalidate it.
+                </p>
+                <div className="grid sm:grid-cols-3 gap-2 items-end">
+                  <Field label="New PIN (4 or 6 digits)">
+                    <Input
+                      type="password"
+                      inputMode="numeric"
+                      value={pinForm.pin}
+                      onChange={(e) => setPinForm({ ...pinForm, pin: e.target.value.replace(/\D/g, '').slice(0, 6) })}
+                      autoComplete="off"
+                    />
+                  </Field>
+                  <Field label="Confirm PIN">
+                    <Input
+                      type="password"
+                      inputMode="numeric"
+                      value={pinForm.confirm}
+                      onChange={(e) => setPinForm({ ...pinForm, confirm: e.target.value.replace(/\D/g, '').slice(0, 6) })}
+                      autoComplete="off"
+                    />
+                  </Field>
+                  <Button
+                    onClick={() => {
+                      setSecErr(null);
+                      if (pinForm.pin !== pinForm.confirm) {
+                        setSecErr('PINs do not match.');
+                        return;
+                      }
+                      const res = registerPin(pinForm.pin);
+                      if (res) setSecErr(res);
+                      else {
+                        setPinForm({ pin: '', confirm: '' });
+                        pushToast({ kind: 'success', title: 'PIN set' });
+                      }
+                    }}
+                  disabled={!pinForm.pin || (pinForm.pin.length !== 4 && pinForm.pin.length !== 6) || pinForm.pin !== pinForm.confirm}
+                  >
+                    Set PIN
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Password change */}
+            <div className="rounded-lg border border-ink-700 bg-ink-900/60 p-3.5 space-y-3">
+              <p className="text-[12px] font-medium text-txt">Change master password</p>
+              <p className="text-[11px] text-txt-dim">
+                Re-wraps the vault key under the new password — your data itself is not re-encrypted.
+              </p>
+              <div className="grid sm:grid-cols-3 gap-2 items-end">
+                <Field label="Current password">
+                  <Input type="password" value={pwChange.current} onChange={(e) => setPwChange({ ...pwChange, current: e.target.value })} autoComplete="current-password" />
+                </Field>
+                <Field label="New password (min 8 chars)">
+                  <Input type="password" value={pwChange.next} onChange={(e) => setPwChange({ ...pwChange, next: e.target.value })} autoComplete="new-password" />
+                </Field>
+                <Button
+                  onClick={async () => {
+                    setSecErr(null);
+                    if (pwChange.next.length < 8) {
+                      setSecErr('New password must be at least 8 characters.');
+                      return;
+                    }
+                    if (pwChange.next !== pwChange.confirm) {
+                      setSecErr('New passwords do not match.');
+                      return;
+                    }
+                    const res = await changePassword(pwChange.current, pwChange.next);
+                    if (res) setSecErr(res);
+                    else {
+                      setPwChange({ current: '', next: '', confirm: '' });
+                      pushToast({ kind: 'success', title: 'Master password changed' });
+                    }
+                  }}
+                  disabled={!pwChange.current || pwChange.next.length < 8 || pwChange.next !== pwChange.confirm}
+                >
+                  Change password
+                </Button>
+              </div>
+            </div>
+
+            {secErr && <p className="text-xs text-rose-400">{secErr}</p>}
+
+            {/* Dev-only sample data */}
+            {import.meta.env.DEV === true && (
+              <div className="flex flex-wrap gap-2 items-center">
+                <Button variant="ghost" className="text-xs" onClick={() => void loadSampleData()}>
+                  <RotateCcw size={12} /> Load sample dataset (dev)
+                </Button>
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {/* Backup & restore (local offline mode) */}
+      {mode === 'local' && (
+        <Card>
+          <CardHeader
+            title={
+              <span className="flex items-center gap-2">
+                <PackageOpen size={14} /> Backup &amp; restore
+              </span>
+            }
+            subtitle="A versioned manifest of your whole portfolio — encrypt it with a passphrase for travel"
+          />
+          <div className="px-5 pb-5 space-y-4">
+            <div className="rounded-lg border border-ink-700 bg-ink-900/60 p-3.5 space-y-3">
+              <p className="text-[12px] font-medium text-txt flex items-center gap-2">
+                <Download size={13} className="text-accent" /> Export backup
+              </p>
+              <Field label="Passphrase (optional)" hint="Leaving this empty writes a plain-JSON backup. AES-256-GCM + scrypt when set.">
+                <Input type="password" value={backupPass} onChange={(e) => setBackupPass(e.target.value)} placeholder="Leave empty for unencrypted" autoComplete="new-password" />
+              </Field>
+              <Button
+                variant="primary"
+                onClick={async () => {
+                  const out = await exportBackup(backupPass || null);
+                  if (!out) return;
+                  const url = URL.createObjectURL(out.blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = out.filename;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                  setBackupPass('');
+                  pushToast({ kind: 'success', title: 'Backup exported', body: out.filename });
+                }}
+              >
+                Export backup file
+              </Button>
+            </div>
+
+            <div className="rounded-lg border border-ink-700 bg-ink-900/60 p-3.5 space-y-3">
+              <p className="text-[12px] font-medium text-txt flex items-center gap-2">
+                <Upload size={13} className="text-accent" /> Restore from backup
+              </p>
+              <p className="text-[11px] text-txt-dim">
+                Restoring <strong>replaces all current data</strong> in this vault with the backup’s
+                contents. Consider exporting a fresh backup first.
+              </p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="application/json,.json"
+                className="hidden"
+                onChange={(e) => setRestoreFile(e.target.files?.[0] ?? null)}
+              />
+              <div className="flex flex-wrap gap-2 items-center">
+                <Button onClick={() => fileInputRef.current?.click()}>
+                  {restoreFile ? restoreFile.name : 'Choose backup file…'}
+                </Button>
+                <Input
+                  type="password"
+                  className="max-w-52"
+                  value={restorePass}
+                  onChange={(e) => setRestorePass(e.target.value)}
+                  placeholder="Passphrase if encrypted"
+                  autoComplete="off"
+                />
+                <Button
+                  variant="primary"
+                  disabled={!restoreFile}
+                  onClick={async () => {
+                    if (!restoreFile) return;
+                    const res = await restoreBackup(restoreFile, restorePass || null);
+                    if (res) pushToast({ kind: 'error', title: 'Restore failed', body: res });
+                    else {
+                      setRestoreFile(null);
+                      setRestorePass('');
+                      if (fileInputRef.current) fileInputRef.current.value = '';
+                    }
+                  }}
+                >
+                  Restore
+                </Button>
+              </div>
+            </div>
           </div>
         </Card>
       )}
@@ -182,12 +460,12 @@ export function Settings() {
         <ul className="px-5 pb-5 space-y-2.5 text-[13px]">
           <li className="flex items-center justify-between gap-3">
             <span className="flex items-center gap-2">
-              <Database size={14} className="text-txt-muted" /> Supabase (auth + secure storage)
+              <Database size={14} className="text-txt-muted" /> Supabase (optional cloud sync)
             </span>
             {configStatus.supabase ? (
-              <Badge tone="positive">{mode === 'cloud' ? 'Connected' : 'Configured — sign in'}</Badge>
+              <Badge tone="positive">{mode === 'cloud' ? 'Connected' : 'Configured'}</Badge>
             ) : (
-              <Badge tone="demo">Not configured · demo mode</Badge>
+              <Badge tone="demo">Not configured · offline mode</Badge>
             )}
           </li>
           <li className="flex items-center justify-between gap-3">
@@ -227,8 +505,9 @@ export function Settings() {
           </li>
           <li className="flex gap-2">
             <Lock size={13} className="mt-0.5 shrink-0 text-txt-dim" />
-            Demo mode stores data in this browser's localStorage only. It offers no cross-device sync and is
-            not as protected as an authenticated deployment — never treat it as a backup.
+            In offline mode your vault is AES-256-GCM encrypted locally and only readable after the
+            master password or device PIN unlocks it — but there is no cross-device sync, so keep a
+            backup (Settings → Backup &amp; restore).
           </li>
           <li className="flex gap-2">
             <Info size={13} className="mt-0.5 shrink-0 text-txt-dim" />
@@ -273,31 +552,43 @@ export function Settings() {
         </div>
       </Modal>
 
-      {/* Reset modal */}
+      {/* Wipe-vault modal (local offline mode) */}
+      {mode === 'local' && (
+        <Card>
+          <CardHeader title="Danger zone" subtitle="Irreversible local actions" />
+          <div className="px-5 pb-5">
+            <Button variant="danger" onClick={() => setWipeOpen(true)}>
+              <Trash2 size={14} /> Wipe vault data…
+            </Button>
+          </div>
+        </Card>
+      )}
+
       <Modal
-        open={resetOpen}
-        onClose={() => setResetOpen(false)}
-        title="Reset demo data"
+        open={wipeOpen}
+        onClose={() => setWipeOpen(false)}
+        title="Wipe vault data"
         footer={
           <>
-            <Button variant="ghost" onClick={() => setResetOpen(false)}>
+            <Button variant="ghost" onClick={() => setWipeOpen(false)}>
               Cancel
             </Button>
             <Button
               variant="danger"
               onClick={async () => {
-                await resetDemo();
-                setResetOpen(false);
+                await wipeVault();
+                setWipeOpen(false);
               }}
             >
-              Reset everything
+              Wipe everything
             </Button>
           </>
         }
       >
         <p className="text-sm text-txt-muted">
-          This clears assets and valuation events stored in this browser (including anything you entered) and
-          regenerates the labeled sample dataset. This cannot be undone.
+          This permanently deletes every asset and valuation event stored in this vault
+          (including anything you entered). Your profile, master password and PIN stay intact.
+          This cannot be undone.
         </p>
       </Modal>
     </div>

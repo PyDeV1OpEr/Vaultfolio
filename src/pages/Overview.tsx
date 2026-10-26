@@ -289,7 +289,8 @@ function QuickAction({ to, icon, label }: { to: string; icon: React.ReactNode; l
 }
 
 function Onboarding() {
-  const { continueDemo, busy, demoDeclined } = useData();
+  const { busy, loadSampleData } = useData();
+  const isDev = import.meta.env.DEV === true;
   return (
     <Card className="mt-6">
       <EmptyState
@@ -303,15 +304,19 @@ function Onboarding() {
                 <Plus size={15} /> Add your first asset
               </Button>
             </Link>
-            <Button onClick={() => void continueDemo()} disabled={busy}>
-              {busy ? 'Loading…' : 'Explore with demo data'}
-            </Button>
+            {isDev && (
+              <Button onClick={() => void loadSampleData()} disabled={busy}>
+                {busy ? 'Loading…' : 'Load sample data (dev)'}
+              </Button>
+            )}
           </div>
         }
       />
-      <p className="text-[11px] text-txt-dim text-center pb-6 -mt-2">
-        Demo data is clearly labeled, stored only in this browser, and can be reset from Settings.
-      </p>
+      {isDev && (
+        <p className="text-[11px] text-txt-dim text-center pb-6 -mt-2">
+          Dev-only sample dataset, clearly labeled. Never shown in production builds.
+        </p>
+      )}
     </Card>
   );
 }

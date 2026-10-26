@@ -16,6 +16,7 @@ import { useEffect, useState } from 'react';
 import { useData } from '../store/dataStore';
 import { Button } from './ui';
 import { DEMO_MARKET } from '../lib/market';
+import { Lock } from 'lucide-react';
 
 const NAV = [
   { to: '/', label: 'Overview', icon: LayoutDashboard },
@@ -45,6 +46,8 @@ export function AppLayout() {
     );
   }
   if (mode === 'signedOut') return <Navigate to="/auth" replace state={{ from: location }} />;
+  if (mode === 'locked') return <Navigate to="/unlock" replace state={{ from: location }} />;
+  if (mode === 'onboarding') return <Navigate to="/onboarding" replace state={{ from: location }} />;
 
   const isDemo = market?.isDemo ?? mode === 'demo';
 
@@ -162,7 +165,7 @@ export function AppLayout() {
 }
 
 function SidebarContent({ mode }: { mode: string }) {
-  const { settings, signOut } = useData();
+  const { settings, signOut, lock, profileName } = useData();
   return (
     <>
       <div className="px-6 pt-6 pb-2 flex items-center gap-2.5">
@@ -197,16 +200,21 @@ function SidebarContent({ mode }: { mode: string }) {
         })}
       </nav>
       <div className="px-4 pb-5">
-        {mode === 'demo' ? (
-          <div className="rounded-lg border border-violet-500/25 bg-violet-500/10 px-3 py-2.5 text-[11px] text-violet-200">
-            <span className="block font-medium mb-0.5">Demo data active</span>
-            Sample records stored locally in this browser only.
+        {mode === 'local' ? (
+          <div className="rounded-lg border border-ink-700 bg-ink-900 px-3 py-2.5 text-[11px] text-txt-muted">
+            <span className="block font-medium text-txt mb-1 truncate">{settings.ownerName || profileName || 'Local vault'}</span>
+            Encrypted locally · decrypts only on this device
           </div>
         ) : (
           <div className="rounded-lg border border-ink-700 bg-ink-900 px-3 py-2.5 text-[11px] text-txt-muted">
             <span className="block font-medium text-txt mb-1 truncate">{settings.ownerName || 'Signed in'}</span>
             Cloud-synced &amp; protected by Supabase rows
           </div>
+        )}
+        {mode === 'local' && (
+          <Button variant="ghost" className="w-full mt-2 text-xs" onClick={() => lock()}>
+            <Lock size={12} className="mr-1" /> Lock vault
+          </Button>
         )}
         {mode === 'cloud' && (
           <Button variant="ghost" className="w-full mt-2 text-xs" onClick={() => void signOut()}>

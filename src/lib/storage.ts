@@ -1,5 +1,5 @@
 import type { Asset, ValuationRecord } from './types';
-import { buildDemoData } from './demo';
+import { aeadDecrypt, aeadEncrypt } from './crypto';
 
 /**
  * Storage adapter interface. Two implementations:
@@ -22,72 +22,133 @@ export interface DataAdapter {
   deleteAsset(assetId: string): Promise<void>;
 }
 
-/* ---------------- Local (demo) adapter ---------------- */
+/* ---------------- Encrypted local (offline-first) adapter ---------------- */
 
-const LOCAL_KEY = 'vaultfolio.local.v1';
+const VAULT_KEY = 'vaultfolio.vault.v1';
+const LEGACY_LOCAL_KEY = 'vaultfolio.local.v1'; // pre-encryption local data (plaintext)
 
-interface LocalDoc extends DataBundle {}
+/** The plaintext portfolio document stored encrypted at rest. */
+interface LocalDoc {
+  assets: Asset[];
+  records: ValuationRecord[];
+}
 
-export class LocalAdapter implements DataAdapter {
+/**
+ * Offline-first local portfolio storage. The entire bundle is encrypted at
+ * rest with the session DEK (AES-256-GCM); nothing is seeded automatically —
+ * a new portfolio starts empty until the user adds assets (or loads the
+ * explicitly-labeled sample dataset, which exists only for development).
+ */
+export class EncryptedLocalAdapter implements DataAdapter {
   readonly id = 'local' as const;
 
-  async init(): Promise<DataBundle> {
-    const raw = localStorage.getItem(LOCAL_KEY);
-    if (raw) {
-      try {
-        const doc = JSON.parse(raw) as LocalDoc;
-        if (Array.isArray(doc.assets) && Array.isArray(doc.records)) return doc;
-      } catch {
-        /* fall through to fresh seed */
-      }
-    }
-    const seed = buildDemoData();
-    this.persist(seed);
-    return seed;
-  }
+  constructor(
+    private readonly dek: () => Uint8Array,
+    private readonly store: {
+      getItem(k: string): string | null;
+      setItem(k: string, v: string): void;
+      removeItem(k: string): void;
+    } = localStorage,
+  ) {}
 
-  private load(): LocalDoc {
-    const raw = localStorage.getItem(LOCAL_KEY);
+  async init(): Promise<DataBundle> {
+    const raw = this.store.getItem(VAULT_KEY);
     if (raw) {
+      const doc = JSON.parse(raw) as import('./profile').EncryptedDoc;
+      const plain = decryptDoc(this.dek(), doc);
+      return { assets: plain.assets, records: plain.records };
+    }
+    // Legacy migration: import pre-encryption data (real user records only —
+    // seeding demo data here is a development-only action elsewhere).
+    if (this.store.getItem(LEGACY_LOCAL_KEY)) {
       try {
-        return JSON.parse(raw) as LocalDoc;
+        const legacy = JSON.parse(this.store.getItem(LEGACY_LOCAL_KEY)!) as LocalDoc;
+        const bundle = { assets: Array.isArray(legacy.assets) ? legacy.assets : [], records: Array.isArray(legacy.records) ? legacy.records : [] };
+        this.persist(bundle);
+        // Only purge the plaintext after a verified encrypted write.
+        const check = this.dek();
+        const written = JSON.parse(this.store.getItem(VAULT_KEY)!) as import('./profile').EncryptedDoc;
+        decryptDoc(check, written);
+        this.store.removeItem(LEGACY_LOCAL_KEY);
+        return bundle;
       } catch {
-        /* ignore */
+        /* fall through to fresh vault; legacy data left untouched for manual recovery */
       }
     }
     return { assets: [], records: [] };
   }
 
+  private read(): LocalDoc {
+    const raw = this.store.getItem(VAULT_KEY);
+    if (!raw) return { assets: [], records: [] };
+    const doc = JSON.parse(raw) as import('./profile').EncryptedDoc;
+    return decryptDoc(this.dek(), doc);
+  }
+
   private persist(doc: LocalDoc) {
-    localStorage.setItem(LOCAL_KEY, JSON.stringify(doc));
+    this.store.setItem(VAULT_KEY, JSON.stringify(encryptDoc(this.dek(), doc)));
   }
 
   async addAsset(asset: Asset, record?: ValuationRecord) {
-    const doc = this.load();
+    const doc = this.read();
     doc.assets = [asset, ...doc.assets.filter((x) => x.id !== asset.id)];
-    if (record) doc.records = [record, ...doc.records];
+    if (record) doc.records = [record, ...doc.records.filter((r) => r.id !== record.id)];
     this.persist(doc);
   }
 
   async updateAsset(asset: Asset, record?: ValuationRecord) {
-    const doc = this.load();
+    const doc = this.read();
     doc.assets = [asset, ...doc.assets.filter((x) => x.id !== asset.id)];
-    if (record) doc.records = [record, ...doc.records];
+    if (record) doc.records = [record, ...doc.records.filter((r) => r.id !== record.id)];
     this.persist(doc);
   }
 
   async deleteAsset(assetId: string) {
-    const doc = this.load();
+    const doc = this.read();
     doc.assets = doc.assets.filter((x) => x.id !== assetId);
     doc.records = doc.records.filter((r) => r.assetId !== assetId);
     this.persist(doc);
   }
 
-  async reset() {
-    localStorage.removeItem(LOCAL_KEY);
-    localStorage.removeItem('vaultfolio.market.cache.v1');
+  /** Replace the whole portfolio (restore path); assumes validation happened upstream. */
+  async replaceAll(bundle: LocalDoc) {
+    this.persist({ assets: bundle.assets, records: bundle.records });
+  }
+
+  /** Wipe the encrypted vault (user-initiated Reset); returns an empty bundle. */
+  async wipe() {
+    this.store.removeItem(VAULT_KEY);
+    this.store.removeItem('vaultfolio.market.cache.v1');
     return this.init();
   }
+
+  /** Development-only: seed the clearly-labeled sample dataset. Never called in production boot. */
+  async loadSampleData() {
+    const { buildDemoData } = await import('./demo');
+    const seed = buildDemoData();
+    const doc = this.read();
+    const hasExisting = doc.assets.length > 0 || doc.records.length > 0;
+    const nextAssets = hasExisting ? [...seed.assets, ...doc.assets] : seed.assets;
+    const nextRecords = hasExisting ? [...seed.records, ...doc.records] : seed.records;
+    this.persist({ assets: nextAssets, records: nextRecords });
+    return { assets: nextAssets, records: nextRecords } as DataBundle;
+  }
+}
+
+/* ---------------- doc (de)hydration helpers ---------------- */
+
+function encryptDoc(dek: Uint8Array, doc: LocalDoc): import('./profile').EncryptedDoc {
+  return {
+    v: 1,
+    alg: 'AES-256-GCM',
+    payload: aeadEncrypt(dek, JSON.stringify(doc), 'vf-vault-doc-v1'),
+  };
+}
+
+function decryptDoc(dek: Uint8Array, doc: import('./profile').EncryptedDoc): LocalDoc {
+  const parsed = JSON.parse(aeadDecrypt(dek, doc.payload, 'vf-vault-doc-v1')) as LocalDoc;
+  if (!Array.isArray(parsed.assets) || !Array.isArray(parsed.records)) throw new Error('corrupt vault document');
+  return parsed;
 }
 
 /* ---------------- Supabase adapter ---------------- */

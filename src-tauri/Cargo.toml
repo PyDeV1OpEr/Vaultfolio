@@ -3,7 +3,7 @@ name = "vaultfolio"
 version = "1.0.0"
 description = "Private wealth tracking for physical assets"
 authors = ["Vaultfolio"]
-license = "UNLICENSED"
+license = "MIT"
 edition = "2021"
 rust-version = "1.77"
 

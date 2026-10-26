@@ -65,8 +65,10 @@ jobs:
               Gatekeeper for this app without changing system security).
             - Windows first launch: choose **More info → Run anyway** if
               SmartScreen shows a warning.
-          - Demo mode works fully offline. Cloud sync requires the
-            maintainer's Supabase configuration.
+          - The app works fully offline: create a local encrypted vault on
+            first launch — no account or API keys required. Cloud sync (via
+            your own Supabase project) is an optional alternative configured
+            with `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`.
           - This release contains no telemetry and no embedded secrets beyond
             public client configuration.
           NOTES

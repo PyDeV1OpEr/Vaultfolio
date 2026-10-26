@@ -2,10 +2,15 @@ import { Loader2, Vault } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { useData } from '../store/dataStore';
 import { Button, Card, Field, Input } from '../components/ui';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Link } from 'react-router-dom';
 
+/**
+ * Cloud sign-in (optional Supabase sync). The offline-first local vault is
+ * created at /onboarding; this screen exists only for users who explicitly
+ * want cloud sync in web deployments.
+ */
 export function AuthScreen() {
-  const { mode, signIn, signUp, continueDemo } = useData();
+  const { mode, signIn, signUp } = useData();
   const [tab, setTab] = useState<'in' | 'up'>('in');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -14,7 +19,7 @@ export function AuthScreen() {
   const [pending, setPending] = useState(false);
 
   if (mode === 'loading') return null;
-  if (mode === 'cloud' || mode === 'demo') return <Navigate to="/" replace />;
+  if (mode === 'cloud' || mode === 'demo' || mode === 'local' || mode === 'locked') return <Navigate to="/" replace />;
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -71,13 +76,12 @@ export function AuthScreen() {
           <p className="text-[11px] text-txt-dim mt-3 text-center">
             Your vault is private: every record is row-secured to your account.
           </p>
-          <Button
-            variant="ghost"
-            className="w-full mt-1 text-xs"
-            onClick={() => void continueDemo()}
-          >
-            Explore in demo mode →
-          </Button>
+          <p className="text-[11px] text-txt-dim mt-1 text-center">
+            Prefer offline?{' '}
+            <Link to="/onboarding" className="text-accent underline underline-offset-2">
+              Create a local vault instead
+            </Link>
+          </p>
         </Card>
       </div>
     </div>
