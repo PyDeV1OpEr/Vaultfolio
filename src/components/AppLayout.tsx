@@ -11,6 +11,7 @@ import {
   Plus,
   Settings as SettingsIcon,
   Shield,
+  TrendingUp,
   Vault,
   Wallet,
   X,
@@ -24,6 +25,7 @@ import { formatMoney } from '../lib/money';
 const PORTFOLIO_NAV = [
   { to: '/', label: 'Overview', icon: LayoutDashboard },
   { to: '/portfolio', label: 'My Assets', icon: Wallet },
+  { to: '/market-watch', label: 'Market Watch', icon: TrendingUp },
   { to: '/insights', label: 'Insights', icon: BarChart3 },
 ];
 
