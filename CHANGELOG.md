@@ -4,7 +4,7 @@ All notable changes to Vaultfolio are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [SemVer](https://semver.org/spec/v2.0.0.html) — MAJOR.MINOR.PATCH, with PATCH reserved for fixes that don't change persisted data or user-visible flows.
 
-## [Unreleased]
+## [1.0.2] — 2026-10-26
 
 ### Added
 - **Market Watch**: optional GoldAPI.io primary and Goldsafe.io fallback spot-price providers for gold, silver, platinum, and palladium; copper is shown as unsupported until a configured provider supports it.

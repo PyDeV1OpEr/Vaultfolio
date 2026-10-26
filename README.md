@@ -6,20 +6,15 @@ Vaultfolio tracks physical assets—precious metals, jewelry and gemstones, watc
 
 ## Download the Latest Version
 
-**Release being prepared: v1.0.2 (Market Watch).** The current public GitHub release is v1.0.1, but its installers were built before the Market Watch commit and are intentionally not presented as downloads for this version.
+**Latest release: v1.0.2 — 26 October 2026.** This is the first release containing the completed Market Watch implementation. The prior v1.0.1 installers predate that commit.
 
 | Platform | Download | Status |
 | --- | --- | --- |
-| macOS Apple Silicon (arm64) | Unavailable until the v1.0.2 release is published | Native DMG built locally; publication pending |
-| macOS Intel (x64) | Unavailable until the v1.0.2 release is published | Built by the release workflow on a macOS runner |
-| Windows 10/11 (x64) | Unavailable until the v1.0.2 release is published | Native NSIS `.exe` built by the release workflow on a Windows runner |
+| macOS Apple Silicon (arm64) | [Download DMG (2.72 MiB)](https://github.com/PyDeV1OpEr/Vaultfolio/releases/download/v1.0.2/Vaultfolio-macOS-arm64.dmg) | Verified published asset |
+| macOS Intel (x64) | [Download DMG (2.86 MiB)](https://github.com/PyDeV1OpEr/Vaultfolio/releases/download/v1.0.2/Vaultfolio-macOS-x64.dmg) | Verified published asset |
+| Windows 10/11 (x64) | [Download setup EXE (3.72 MiB)](https://github.com/PyDeV1OpEr/Vaultfolio/releases/download/v1.0.2/Vaultfolio-Windows-x64-setup.exe) | Verified published asset |
 
-When published, the verified direct asset URLs will be:
-
-- macOS Apple Silicon: `https://github.com/PyDeV1OpEr/Vaultfolio/releases/download/v1.0.2/Vaultfolio-macOS-arm64.dmg`
-- Windows x64: `https://github.com/PyDeV1OpEr/Vaultfolio/releases/download/v1.0.2/Vaultfolio-Windows-x64-setup.exe`
-
-Those URLs are intentionally shown as text, not links, until the assets exist. See [full release notes](https://github.com/PyDeV1OpEr/Vaultfolio/releases) for published releases and checksums.
+The macOS Apple Silicon and Windows x64 assets were built from tag `v1.0.2`; Intel macOS is also available. See the [full v1.0.2 release notes and SHA-256 digests](https://github.com/PyDeV1OpEr/Vaultfolio/releases/tag/v1.0.2).
 
 ## What’s in v1.0.2
 
