@@ -6,15 +6,15 @@ Vaultfolio tracks physical assets—precious metals, jewelry and gemstones, watc
 
 ## Download the Latest Version
 
-**Latest release: v1.0.2 — 26 October 2026.** This is the first release containing the completed Market Watch implementation. The prior v1.0.1 installers predate that commit.
+**Latest verified release: v1.0.2 — 26 October 2026.** A corrected v1.0.3 installer set is being prepared: v1.0.2 has the right version metadata but an older frontend bundle, so do not use it for Market Watch.
 
 | Platform | Download | Status |
 | --- | --- | --- |
-| macOS Apple Silicon (arm64) | [Download DMG (2.72 MiB)](https://github.com/PyDeV1OpEr/Vaultfolio/releases/download/v1.0.2/Vaultfolio-macOS-arm64.dmg) | Verified published asset |
-| macOS Intel (x64) | [Download DMG (2.86 MiB)](https://github.com/PyDeV1OpEr/Vaultfolio/releases/download/v1.0.2/Vaultfolio-macOS-x64.dmg) | Verified published asset |
-| Windows 10/11 (x64) | [Download setup EXE (3.72 MiB)](https://github.com/PyDeV1OpEr/Vaultfolio/releases/download/v1.0.2/Vaultfolio-Windows-x64-setup.exe) | Verified published asset |
+| macOS Apple Silicon (arm64) | Corrected v1.0.3 DMG is building | Do not use v1.0.2 for Market Watch |
+| macOS Intel (x64) | Corrected v1.0.3 DMG is building | Do not use v1.0.2 for Market Watch |
+| Windows 10/11 (x64) | Corrected v1.0.3 setup EXE is building | Do not use v1.0.2 for Market Watch |
 
-The macOS Apple Silicon and Windows x64 assets were built from tag `v1.0.2`; Intel macOS is also available. See the [full v1.0.2 release notes and SHA-256 digests](https://github.com/PyDeV1OpEr/Vaultfolio/releases/tag/v1.0.2).
+The v1.0.3 release will contain a packaging fix that forces the current frontend bundle to be embedded in every native installer. See [all releases](https://github.com/PyDeV1OpEr/Vaultfolio/releases).
 
 ## What’s in v1.0.2
 

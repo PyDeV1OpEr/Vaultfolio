@@ -119,6 +119,11 @@ jobs:
           workspaces: |
             src-tauri -> target
       - run: npm ci
+      # `frontendDist` is embedded by Cargo. Clear only this app crate so a
+      # restored Rust cache cannot retain an earlier JavaScript/CSS bundle.
+      - name: Clear embedded frontend cache
+        run: cargo clean -p vaultfolio
+        working-directory: src-tauri
       - name: Build Apple Silicon dmg
         run: npx tauri build --target aarch64-apple-darwin --config src-tauri/tauri.macos.json
       - name: Build Intel dmg
@@ -158,6 +163,11 @@ jobs:
           workspaces: |
             src-tauri -> target
       - run: npm ci
+      # `frontendDist` is embedded by Cargo. Clear only this app crate so a
+      # restored Rust cache cannot retain an earlier JavaScript/CSS bundle.
+      - name: Clear embedded frontend cache
+        run: cargo clean -p vaultfolio
+        working-directory: src-tauri
       - name: Build NSIS installer
         run: npx tauri build --config src-tauri/tauri.windows.json
       - name: Normalize artifact names
