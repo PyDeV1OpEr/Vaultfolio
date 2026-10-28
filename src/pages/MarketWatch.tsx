@@ -45,6 +45,7 @@ import {
   mergeObservations,
   observationsForMetal,
   filterByRange,
+  rangeChange,
   fetchLatestPrices,
   freshnessStatus,
   freshnessLabel,
@@ -62,6 +63,8 @@ import { formatDateTime, relativeTime } from '../lib/money';
 const ALL_METALS: MetalCode[] = ['XAU', 'XAG', 'XPT', 'XPD', 'XCU'];
 
 const RANGE_LABELS: Record<MarketWatchSettings['selectedRange'], string> = {
+  '1h': '1H',
+  '12h': '12H',
   '24h': '24H',
   '7d': '7D',
   '30d': '30D',
@@ -195,8 +198,15 @@ export function MarketWatchPage() {
   // USD/LKR from the existing market store (separately sourced FX rate)
   const usdLkr = market?.usdLkr ?? null;
 
-  /* ── Change (if same-provider history available) ── */
+  /* ── Change, computed from REAL observations in the selected window first ── */
+  const rangeChangeInfo = useMemo(() => rangeChange(rangeObs), [rangeObs]);
+
   const computedChange = useMemo(() => {
+    // Preferred: end-to-end change across the selected time range (real data points)
+    if (rangeChangeInfo) {
+      return { abs: rangeChangeInfo.abs, pct: rangeChangeInfo.pct };
+    }
+    // Fallback: provider-supplied previous-session change
     if (latest?.change !== null && latest?.change !== undefined) {
       return { abs: latest.change, pct: latest.changePct ?? null };
     }
@@ -206,7 +216,7 @@ export function MarketWatchPage() {
       return { abs, pct };
     }
     return null;
-  }, [latest, secondLatest]);
+  }, [rangeChangeInfo, latest, secondLatest]);
 
   return (
     <div className="max-w-5xl space-y-5 animate-fadeUp">

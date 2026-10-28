@@ -3,6 +3,7 @@ import {
   AlertCircle,
   BarChart3,
   CheckCircle2,
+  FileText,
   Info,
   LayoutDashboard,
   Loader2,
@@ -26,6 +27,7 @@ const PORTFOLIO_NAV = [
   { to: '/', label: 'Overview', icon: LayoutDashboard },
   { to: '/portfolio', label: 'My Assets', icon: Wallet },
   { to: '/market-watch', label: 'Market Watch', icon: TrendingUp },
+  { to: '/reports', label: 'Reports', icon: FileText },
   { to: '/insights', label: 'Insights', icon: BarChart3 },
 ];
 

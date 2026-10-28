@@ -11,6 +11,7 @@ import {
   RefreshCw,
   RotateCcw,
   ShieldCheck,
+  Sparkles,
   Trash2,
   Upload,
   User as UserIcon,
@@ -20,6 +21,7 @@ import { SUPPORTED_CURRENCIES, downloadTextFile } from '../lib/money';
 import { categoryMeta } from '../lib/categories';
 import { supabaseConfigured } from '../lib/supabase';
 import { MAX_PIN_FAILURES } from '../lib/profile';
+import { credentialSealMode } from '../lib/credentials';
 import { Badge, Button, Card, CardHeader, Field, Input, Modal, Select } from '../components/ui';
 import type { CurrencyCode } from '../lib/types';
 
@@ -28,6 +30,7 @@ export function Settings() {
     settings, setSettings, assets, records, market, mode, signOut, userEmail,
     hasPin, pinLength, registerPin, changePin, removePin, changePassword, lock,
     exportBackup, restoreBackup, wipeVault, pushToast,
+    saveGeminiKey, hasGeminiKeyStored, clearGeminiKey,
   } = useData();
   const [exportOpen, setExportOpen] = useState(false);
   const [wipeOpen, setWipeOpen] = useState(false);
@@ -45,6 +48,16 @@ export function Settings() {
   const [restorePass, setRestorePass] = useState('');
   const [restoreFile, setRestoreFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  /* Gemini key state */
+  const [geminiModalOpen, setGeminiModalOpen] = useState(false);
+  const [geminiKeyInput, setGeminiKeyInput] = useState('');
+  const [geminiPassphrase, setGeminiPassphrase] = useState('');
+  const [geminiErr, setGeminiErr] = useState<string | null>(null);
+  const [geminiBusy, setGeminiBusy] = useState(false);
+
+  const keyConfigured = hasGeminiKeyStored();
+  const sealMode = credentialSealMode('gemini-api-key') ?? 'vault-dek';
 
   const configStatus = useMemo(
     () => ({
@@ -436,6 +449,44 @@ export function Settings() {
         </Card>
       )}
 
+      {/* Gemini AI (user-configured key, envelope-encrypted at rest) */}
+      <Card>
+        <CardHeader title="Gemini AI" subtitle="User-configured key for AI Market Reports" />
+        <div className="px-5 pb-5 space-y-3">
+          <div className="flex items-center justify-between gap-3 text-[13px]">
+            <span className="flex items-center gap-2">
+              <Sparkles size={14} className="text-txt-muted" /> Gemini API key
+            </span>
+            {keyConfigured ? (
+              <Badge tone="positive">Stored · encrypted at rest</Badge>
+            ) : (
+              <Badge tone="warning">Not configured</Badge>
+            )}
+          </div>
+          {keyConfigured && (
+            <p className="text-[11px] text-txt-dim">
+              Seal mode: {sealMode === 'passphrase' ? 'passphrase-sealed envelope (your vault passphrase wraps the key)' : 'vault DEK (key is sealed together with your vault)'}.
+              The plaintext key is never written to disk or logs.
+            </p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="secondary" onClick={() => setGeminiModalOpen(true)}>
+              <KeyRound size={13} /> {keyConfigured ? 'Replace key' : 'Add key'}
+            </Button>
+            {keyConfigured && (
+              <Button size="sm" variant="danger" onClick={() => void clearGeminiKey()}>
+                Remove key
+              </Button>
+            )}
+          </div>
+          <p className="text-[11px] text-txt-dim leading-relaxed">
+            Reports call Google's Gemini REST API directly and the key is sent only in the Authorization header to Google.
+            Because Vaultfolio runs locally, this is client-side with envelope encryption — a determined adversary with device access could still recover it; never use a production-critical key here.
+            Create a free key at aistudio.google.com.
+          </p>
+        </div>
+      </Card>
+
       {/* Configuration status */}
       <Card>
         <CardHeader title="Integrations" subtitle="What's wired up in this build" />
@@ -614,6 +665,62 @@ export function Settings() {
           <p className="text-xs text-txt-dim">
             If you wish to preserve your current records, export a fresh backup before proceeding.
           </p>
+        </div>
+      </Modal>
+
+      {/* Gemini key modal: accepts the key; passphrase is requested only when the vault is locked */}
+      <Modal
+        open={geminiModalOpen}
+        onClose={() => { setGeminiModalOpen(false); setGeminiErr(null); setGeminiKeyInput(''); setGeminiPassphrase(''); }}
+        title="Configure Gemini API key"
+      >
+        <div className="space-y-3.5">
+          <Field label="Gemini API key">
+            <Input
+              id="gemini-key"
+              type="password"
+              autoComplete="off"
+              placeholder="AIza…"
+              value={geminiKeyInput}
+              onChange={(e) => setGeminiKeyInput(e.target.value)}
+            />
+          </Field>
+          {mode !== 'local' && (
+            <Field label="Vault passphrase (needed to seal the key while the vault is locked)">
+              <Input
+                id="gemini-pass"
+                type="password"
+                autoComplete="off"
+                value={geminiPassphrase}
+                onChange={(e) => setGeminiPassphrase(e.target.value)}
+              />
+            </Field>
+          )}
+          <p className="text-[11px] text-txt-dim leading-relaxed">
+            Stored per your device with envelope encryption (AES-256-GCM + scrypt wrapping). Nothing is uploaded to Vaultfolio servers.
+            Get a free key at aistudio.google.com. If you've pasted a key anywhere public, rotate it.
+          </p>
+          {geminiErr && <p className="text-xs text-negative">{geminiErr}</p>}
+        </div>
+        <div className="mt-4 flex gap-2 justify-end">
+          <Button variant="ghost" size="sm" onClick={() => { setGeminiModalOpen(false); setGeminiErr(null); setGeminiKeyInput(''); setGeminiPassphrase(''); }}>Cancel</Button>
+          <Button
+            variant="primary"
+            size="sm"
+            loading={geminiBusy}
+            onClick={async () => {
+              setGeminiBusy(true);
+              setGeminiErr(null);
+              const err = await saveGeminiKey(geminiKeyInput, mode === 'local' ? null : geminiPassphrase);
+              setGeminiBusy(false);
+              if (err) { setGeminiErr(err); return; }
+              setGeminiModalOpen(false);
+              setGeminiKeyInput('');
+              setGeminiPassphrase('');
+            }}
+          >
+            Save key
+          </Button>
         </div>
       </Modal>
     </div>
