@@ -8,6 +8,7 @@ import { AssetDetail } from './pages/AssetDetail';
 import { MarketPage } from './pages/Market';
 import { MarketWatchPage } from './pages/MarketWatch';
 import { Insights } from './pages/Insights';
+import { ReportsScreen } from './pages/Reports';
 import { Settings } from './pages/Settings';
 import { AuthScreen } from './pages/Auth';
 import { OnboardingScreen } from './pages/Onboarding';
@@ -64,6 +65,7 @@ export default function App() {
         <Route path="/market" element={<MarketPage />} />
         <Route path="/market-watch" element={<MarketWatchPage />} />
         <Route path="/insights" element={<Insights />} />
+        <Route path="/reports" element={<ReportsScreen />} />
         <Route path="/settings" element={<Settings />} />
         <Route
           path="*"

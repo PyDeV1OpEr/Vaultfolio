@@ -6,6 +6,16 @@ import { getSupabase, supabaseConfigured } from '../lib/supabase';
 import { ProfileStore } from '../lib/profile';
 import { fromHex } from '../lib/crypto';
 import { buildBackup, parseBackup } from '../lib/backup';
+import {
+  hasStoredCredential,
+  loadWithPassphrase,
+  loadWithVaultDek,
+  persistWithPassphrase,
+  persistWithVaultDek,
+  deleteCredential,
+} from '../lib/credentials';
+
+const KIND_GEMINI = 'gemini-api-key' as const;
 
 /**
  * Application session modes (offline-first):
@@ -127,6 +137,18 @@ interface DataState {
   refreshMarket: () => Promise<void>;
   pushToast: (t: Omit<Toast, 'id'>) => void;
   dismissToast: (id: number) => void;
+
+  /** Stores the user's Gemini key: under the unlocked vault DEK when
+   *  available, otherwise passphrase-sealed. Returns an error message or null. */
+  saveGeminiKey: (key: string, passphrase: string | null) => Promise<string | null>;
+  /** Reads the stored Gemini key. When `passphrase` is provided it unseals a
+   *  passphrase-sealed key; otherwise it uses the vault DEK when unlocked. */
+  loadGeminiKey: (passphrase?: string | null) => Promise<string | null>;
+  /** True when a Gemini key envelope exists on this device (contents not read). */
+  hasGeminiKeyStored: () => boolean;
+  /** Remove the stored Gemini key envelope. */
+  clearGeminiKey: () => boolean;
+
   /** Development-only: seed the clearly-labeled sample dataset. */
   loadSampleData: () => Promise<void>;
 }
@@ -545,6 +567,53 @@ export const useData = create<DataState>((set, get) => {
       } catch {
         set({ marketLoading: false });
       }
+    },
+
+    async saveGeminiKey(key, passphrase) {
+      const trimmed = key.trim();
+      if (trimmed.length < 20) return 'That does not look like a valid Gemini API key.';
+      try {
+        if (dekHex) {
+          // Preferred: seal under the live vault DEK (in-memory only, never persisted).
+          persistWithVaultDek(KIND_GEMINI, trimmed, dekHex);
+        } else if (passphrase) {
+          // Fallback when the vault is locked: passphrase-seal the key instead.
+          persistWithPassphrase(KIND_GEMINI, trimmed, passphrase, localStorage);
+        } else {
+          return 'Vault is locked — enter your vault passphrase to store the key, or unlock the vault first.';
+        }
+        get().pushToast({ kind: 'success', title: 'Gemini key saved', body: 'Encrypted with your vault key. It never leaves this device.' });
+        return null;
+      } catch (e) {
+        return `Could not store the key: ${(e as Error).message}`;
+      }
+    },
+
+    async loadGeminiKey(passphrase) {
+      try {
+        if (dekHex) {
+          const viaVault = loadWithVaultDek(KIND_GEMINI, dekHex, localStorage);
+          if (viaVault) return viaVault;
+        }
+        if (passphrase) {
+          return loadWithPassphrase(KIND_GEMINI, passphrase, localStorage);
+        }
+        return null;
+      } catch {
+        return null;
+      }
+    },
+
+    hasGeminiKeyStored() {
+      return hasStoredCredential(KIND_GEMINI, localStorage);
+    },
+
+    clearGeminiKey() {
+      const removed = deleteCredential(KIND_GEMINI, localStorage);
+      if (removed) {
+        get().pushToast({ kind: 'info', title: 'Gemini key removed', body: 'Reports can no longer be generated until a new key is configured.' });
+      }
+      return removed;
     },
 
     async loadSampleData() {

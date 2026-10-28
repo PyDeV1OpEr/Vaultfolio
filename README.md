@@ -16,16 +16,17 @@ Vaultfolio tracks physical assets—precious metals, jewelry and gemstones, watc
 
 The v1.0.4 release includes both fixes: it forces the current frontend to be embedded and rebuilds the macOS DMG after validating its app signature. See [all releases](https://github.com/PyDeV1OpEr/Vaultfolio/releases).
 
-## What’s in v1.0.2
+## What’s in Vaultfolio
 
 - Physical-asset portfolio tracking across precious metals, jewelry and gemstones, watches, property (including Sri Lankan perches), vehicles, and custom assets.
-- Market Watch for international USD reference quotes of gold, silver, platinum, and palladium when a supported provider is configured. Copper is visible but currently marked unsupported by the bundled providers rather than estimated.
-- Interactive price timelines across 24 hours, 7 days, 30 days, 90 days, and all collected observations.
+- Market Watch for international USD reference quotes with a provider adapter (GoldAPI.io primary, Goldsafe.io fallback) covering gold (XAU), silver (XAG), platinum (XPT), and palladium (XPD). Copper (XCU) is mapped and displayed, currently marked unsupported by the bundled providers rather than estimated.
+- Interactive price timelines across 1 h, 12 h, 24 hours, 7 days, 30 days, 90 days, and all collected observations, with window changes computed from real stored observations.
+- Optional AI Market Reports powered by *your* Gemini API key: structured, model-generated analysis grounded only in your locally stored provider data, with per-metal evidence, risks, and conditional (never guaranteed) conclusions. No prices or claims come from the model itself.
 - Local on-device market-price history, capped at 500 observations per metal. History starts when observations are collected; the app does not invent or claim provider backfill.
-- Provider, timestamp, freshness, error, and credential-status indicators; manual refresh plus low-frequency automatic collection (two runs per day by default).
+- Provider, timestamp, freshness, error, and credential-status indicators; manual refresh plus low-frequency automatic collection (two runs per day by default). Rate-limit responses respect Retry-After.
 - Portfolio analytics with allocation, cost-versus-value, top-holding, and portfolio valuation-history charts, based on the user’s records.
 - Manual valuations and optional configured metal/FX reference data. International reference prices and calculated LKR conversions are not presented as Sri Lankan dealer quotes.
-- Local encrypted vault, PIN unlock, rate limiting, encrypted backup/restore, and optional Supabase cloud mode.
+- Local encrypted vault, PIN unlock, rate limiting, encrypted backup/restore, user-configured Gemini key sealed under the vault key, and optional Supabase cloud mode.
 
 ## Install
 
@@ -56,7 +57,14 @@ GoldAPI.io is the primary provider and Goldsafe.io is the fallback. Both bundled
 
 `VITE_METALS_API_URL` can optionally point to a separately managed endpoint returning gold/silver and USD/LKR values; this is distinct from Market Watch. Any LKR conversion remains a reference calculation, not a verified local dealer price.
 
-Gemini is not integrated or required by the current app. If a prior Gemini quota has been exhausted, it does not block the functionality listed above; no Gemini-dependent feature is claimed in this release.
+Gemini is not integrated or required by the current app for tracking. The optional **AI Market Reports** section uses *your* Gemini API key, configured in-app under Settings → Gemini AI:
+
+- Reports call `gemini-2.5-flash` via Google's REST API with native structured-output (`responseSchema`), so analysis arrives as validated JSON, not free text.
+- The app never accepts numeric prices from the model. Reports are assembled from provider observations stored on your device; missing windows are labelled incomplete rather than filled in. Period options: 24 h / 7 d / 30 d / 90 d.
+- The key is stored encrypted at rest (AES-256-GCM envelope, sealed with the vault DEK or a passphrase) and is sent only to Google. Because Vaultfolio runs locally, this is client-side storage: never use a production-critical key here.
+- If no key is configured, Reports show setup guidance and nothing else — the rest of the app is unaffected.
+
+To create a free key: [aistudio.google.com](https://aistudio.google.com) → "Get API key".
 
 ## Privacy, storage, and backup
 
@@ -98,6 +106,8 @@ The tag-triggered [release workflow](.github/workflows/release.yml) builds macOS
 - **No chart history:** observations are recorded only after successful collection on this device; choose a wider range or collect additional observations.
 - **Values look unlike a Sri Lankan shop quote:** Market Watch quotes are international USD references. Enter a manual valuation or configure an appropriate source for your use case.
 - **Cannot unlock the vault:** use the in-app PIN recovery flow with the vault master password. Restore a backup only if you have verified it belongs to that vault.
+- **"API key not valid" in Reports:** re-check the pasted key (Google AI Studio keys are 39 characters starting `AIza`) or press Remove key in Settings → Gemini AI and add a fresh one. Quota errors show Google's suggested wait time.
+- **Report says "incomplete":** the selected window has fewer than two stored observations for that metal; collect more Market Watch history or pick a longer period. Gaps are never filled with invented data.
 
 ## Security and release verification
 

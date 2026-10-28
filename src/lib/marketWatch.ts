@@ -70,7 +70,7 @@ export interface MarketWatchSettings {
   /** The currently selected metal on the market watch page */
   selectedMetal: MetalCode;
   /** The selected time range on the chart */
-  selectedRange: '24h' | '7d' | '30d' | '90d' | 'all';
+  selectedRange: '1h' | '12h' | '24h' | '7d' | '30d' | '90d' | 'all';
 }
 
 export interface ProviderResult {
@@ -79,6 +79,31 @@ export interface ProviderResult {
   providerUsed: ProviderId;
   fallbackUsed: boolean;
   fetchedAt: string;
+  /** Server-advertised backoff (Retry-After, ms) from a 429 rate-limit response, if any. */
+  retryAfterMs: number | null;
+}/**
+ * Thrown by a provider adapter when the upstream API responds 429.
+ * Carries the server's Retry-After so callers can back off correctly
+ * instead of hammering the endpoint.
+ */
+export class RateLimitedError extends Error {
+  retryAfterMs: number | null;
+  constructor(message: string, retryAfterMs: number | null) {
+    super(message);
+    this.name = 'RateLimitedError';
+    this.retryAfterMs = retryAfterMs;
+  }
+}/**
+ * Parse the HTTP Retry-After header (seconds-delay form; dates are ignored
+ * as providers in this domain use the numeric form). Returns null when absent
+ * or unparsable.
+ */
+export function parseRetryAfter(res: Response): number | null {
+  const raw = res.headers.get('retry-after');
+  if (raw === null) return null;
+  const secs = Number(raw.trim());
+  if (!Number.isFinite(secs) || secs < 0) return null;
+  return Math.min(Math.round(secs * 1000), 24 * 60 * 60 * 1000); // cap at 24h
 }
 
 /* ─────────────────────────── Constants ─────────────────────────── */
@@ -222,6 +247,8 @@ export function filterByRange(
   if (range === 'all') return observations;
   const now = Date.now();
   const cutoffMs: Record<MarketWatchSettings['selectedRange'], number> = {
+    '1h': 60 * 60 * 1000,
+    '12h': 12 * 60 * 60 * 1000,
     '24h': 24 * 60 * 60 * 1000,
     '7d': 7 * 24 * 60 * 60 * 1000,
     '30d': 30 * 24 * 60 * 60 * 1000,
@@ -230,6 +257,24 @@ export function filterByRange(
   };
   const cutoff = now - (cutoffMs[range] ?? Infinity);
   return observations.filter((o) => new Date(o.retrievedAt).getTime() >= cutoff);
+}
+
+/**
+ * Change across a range of observations, computed from the actual first and
+ * last data points in the (already range-filtered) slice.
+ * Returns null when fewer than 2 valid observations exist — never a zero
+ * masquerading for "no data".
+ */
+export function rangeChange(
+  observations: PriceObservation[],
+): { abs: number; pct: number | null; first: PriceObservation; last: PriceObservation } | null {
+  if (observations.length < 2) return null;
+  const first = observations[0];
+  const last = observations[observations.length - 1];
+  if (!Number.isFinite(first.price) || !Number.isFinite(last.price)) return null;
+  const abs = last.price - first.price;
+  const pct = first.price > 0 ? (abs / first.price) * 100 : null;
+  return { abs, pct, first, last };
 }
 
 /* ─────────────────────────── Validation ─────────────────────────── */
@@ -278,7 +323,12 @@ export const goldApiAdapter = {
         signal: controller.signal,
       });
       if (!res.ok) {
-        // 429 → rate limited; 403 → bad key
+        if (res.status === 429) {
+          throw new RateLimitedError(
+            `GoldAPI.io rate limit (HTTP 429) for ${metal}`,
+            parseRetryAfter(res),
+          );
+        }
         return null;
       }
       const j = (await res.json()) as Record<string, unknown>;
@@ -326,6 +376,9 @@ export const goldApiAdapter = {
         pricePerGramUsd,
       } satisfies PriceObservation;
     } catch (e) {
+      if (e instanceof RateLimitedError) {
+        throw e; // rate-limit info must survive fetchAll's per-metal loop
+      }
       if ((e as Error).name === 'AbortError') {
         console.warn(`[MarketWatch] GoldAPI timeout for ${metal}`);
       }
@@ -338,7 +391,7 @@ export const goldApiAdapter = {
   async fetchAll(
     metals: MetalCode[],
     apiKey: string,
-  ): Promise<{ observations: PriceObservation[]; errors: Record<MetalCode, string | null> }> {
+  ): Promise<{ observations: PriceObservation[]; errors: Record<MetalCode, string | null>; retryAfterMs: number | null }> {
     const supported = metals.filter((m) => GOLDAPI_SUPPORTED.includes(m));
     const unsupported = metals.filter((m) => !GOLDAPI_SUPPORTED.includes(m));
 
@@ -348,9 +401,22 @@ export const goldApiAdapter = {
     }
 
     const observations: PriceObservation[] = [];
+    let retryAfterMs: number | null = null;
     // GoldAPI requires individual requests per metal
     for (const metal of supported) {
-      const obs = await this.fetchMetal(metal, apiKey);
+      let obs: PriceObservation | null;
+      try {
+        obs = await this.fetchMetal(metal, apiKey);
+      } catch (e) {
+        if (e instanceof RateLimitedError) {
+          if (e.retryAfterMs !== null && (retryAfterMs === null || e.retryAfterMs > retryAfterMs)) {
+            retryAfterMs = e.retryAfterMs;
+          }
+          errors[metal] = `${e.message}${e.retryAfterMs ? ` — back off ${Math.round(e.retryAfterMs / 1000)}s` : ''}`;
+          continue;
+        }
+        throw e;
+      }
       if (obs) {
         observations.push(obs);
         errors[metal] = null;
@@ -358,7 +424,7 @@ export const goldApiAdapter = {
         errors[metal] = `GoldAPI.io fetch failed for ${metal}`;
       }
     }
-    return { observations, errors };
+    return { observations, errors, retryAfterMs };
   },
 };
 
@@ -371,7 +437,7 @@ export const goldsafeAdapter = {
   async fetchAll(
     metals: MetalCode[],
     apiKey: string,
-  ): Promise<{ observations: PriceObservation[]; errors: Record<MetalCode, string | null> }> {
+  ): Promise<{ observations: PriceObservation[]; errors: Record<MetalCode, string | null>; retryAfterMs: number | null }> {
     const supported = metals.filter((m) => GOLDSAFE_SUPPORTED.includes(m));
     const unsupported = metals.filter((m) => !GOLDSAFE_SUPPORTED.includes(m));
 
@@ -381,7 +447,7 @@ export const goldsafeAdapter = {
     }
 
     if (supported.length === 0) {
-      return { observations: [], errors };
+      return { observations: [], errors, retryAfterMs: null };
     }
 
     // Goldsafe supports a comma-separated symbols parameter — single request for all metals
@@ -396,10 +462,11 @@ export const goldsafeAdapter = {
         signal: controller.signal,
       });
       if (!res.ok) {
+        const retryAfterMs = res.status === 429 ? parseRetryAfter(res) : null;
         for (const m of supported) {
-          errors[m] = `Goldsafe.io returned HTTP ${res.status}`;
+          errors[m] = `Goldsafe.io returned HTTP ${res.status}${retryAfterMs !== null ? ` — back off ${Math.round(retryAfterMs / 1000)}s` : ''}`;
         }
-        return { observations: [], errors };
+        return { observations: [], errors, retryAfterMs };
       }
 
       const j = (await res.json()) as Record<string, unknown>;
@@ -458,15 +525,16 @@ export const goldsafeAdapter = {
         }
       }
 
-      return { observations, errors };
+      return { observations, errors, retryAfterMs: null };
     } catch (e) {
       if ((e as Error).name === 'AbortError') {
         console.warn('[MarketWatch] Goldsafe.io timeout');
       }
+      const retryAfterMs = e instanceof RateLimitedError ? e.retryAfterMs : null;
       for (const m of supported) {
-        if (!errors[m]) errors[m] = 'Goldsafe.io request failed';
+        if (!errors[m]) errors[m] = e instanceof RateLimitedError ? e.message : 'Goldsafe.io request failed';
       }
-      return { observations: [], errors };
+      return { observations: [], errors, retryAfterMs };
     } finally {
       clearTimeout(timeout);
     }
@@ -502,14 +570,18 @@ export async function fetchLatestPrices(metals: MetalCode[]): Promise<ProviderRe
   let observations: PriceObservation[] = [];
   let providerUsed: ProviderId = 'goldapi';
   let fallbackUsed = false;
+  let retryAfterMs: number | null = null;
 
   // --- Primary: GoldAPI.io ---
   const primaryMetals = metals.filter((m) => goldApiKey); // skip if no key
-  let primaryResult: { observations: PriceObservation[]; errors: Record<MetalCode, string | null> } | null = null;
+  let primaryResult: { observations: PriceObservation[]; errors: Record<MetalCode, string | null>; retryAfterMs: number | null } | null = null;
 
   if (goldApiKey && primaryMetals.length > 0) {
     primaryResult = await goldApiAdapter.fetchAll(primaryMetals, goldApiKey);
     observations = [...observations, ...primaryResult.observations];
+    if (primaryResult.retryAfterMs !== null) {
+      retryAfterMs = primaryResult.retryAfterMs;
+    }
     for (const [metal, err] of Object.entries(primaryResult.errors)) {
       allErrors[metal as MetalCode] = err;
     }
@@ -531,6 +603,9 @@ export async function fetchLatestPrices(metals: MetalCode[]): Promise<ProviderRe
     providerUsed = 'goldsafe';
     const fallbackResult = await goldsafeAdapter.fetchAll(needsFallback, goldsafeKey);
     observations = [...observations, ...fallbackResult.observations];
+    if (fallbackResult.retryAfterMs !== null && retryAfterMs === null) {
+      retryAfterMs = fallbackResult.retryAfterMs;
+    }
     for (const [metal, err] of Object.entries(fallbackResult.errors)) {
       // Only update error if primary also failed
       if (allErrors[metal as MetalCode]) {
@@ -550,7 +625,7 @@ export async function fetchLatestPrices(metals: MetalCode[]): Promise<ProviderRe
     providerUsed = fallbackUsed ? 'goldapi' : 'goldapi';
   }
 
-  return { observations, errors: allErrors, providerUsed, fallbackUsed, fetchedAt };
+  return { observations, errors: allErrors, providerUsed, fallbackUsed, fetchedAt, retryAfterMs };
 }
 
 /* ─────────────────────────── Scheduling ─────────────────────────── */
