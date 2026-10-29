@@ -6,20 +6,20 @@ Vaultfolio tracks physical assets—precious metals, jewelry and gemstones, watc
 
 ## Download the Latest Version
 
-**Corrected v1.0.4 installer set is being prepared.** Do not use v1.0.2 or v1.0.3: v1.0.2 has a stale frontend, and v1.0.3's macOS bundle has an invalid signature.
+**Truthful builds from current source.** Do not use v1.0.2 or v1.0.3: v1.0.2 has a stale frontend, and v1.0.3's macOS bundle has an invalid signature. v1.0.4 contains neither fix for the AI Market Reports section (it was built before that feature merged); v1.0.5 is the current source, rebuilt for all three platforms.
 
-| Platform | Download | Status |
-| --- | --- | --- |
-| macOS Apple Silicon (arm64) | Corrected v1.0.4 DMG is building | Re-signed app bundle with current Market Watch UI |
-| macOS Intel (x64) | Corrected v1.0.4 DMG is building | Re-signed app bundle with current Market Watch UI |
-| Windows 10/11 (x64) | Corrected v1.0.4 setup EXE is building | Current Market Watch UI |
+| Platform | Download |
+| --- | --- |
+| macOS Apple Silicon (arm64) | [Vaultfolio-macOS-arm64.dmg](https://github.com/PyDeV1OpEr/Vaultfolio/releases/latest/download/Vaultfolio-macOS-arm64.dmg) |
+| macOS Intel (x64) | [Vaultfolio-macOS-x64.dmg](https://github.com/PyDeV1OpEr/Vaultfolio/releases/latest/download/Vaultfolio-macOS-x64.dmg) |
+| Windows 10/11 (x64) | [Vaultfolio-Windows-x64-setup.exe](https://github.com/PyDeV1OpEr/Vaultfolio/releases/latest/download/Vaultfolio-Windows-x64-setup.exe) |
 
-The v1.0.4 release includes both fixes: it forces the current frontend to be embedded and rebuilds the macOS DMG after validating its app signature. See [all releases](https://github.com/PyDeV1OpEr/Vaultfolio/releases).
+Each link points at the **latest** release; the same filenames appear on the [release page](https://github.com/PyDeV1OpEr/Vaultfolio/releases/latest) with SHA-256 checksums in the notes. See [DESKTOP.md](DESKTOP.md) for the installer-verification steps.
 
 ## What’s in Vaultfolio
 
 - Physical-asset portfolio tracking across precious metals, jewelry and gemstones, watches, property (including Sri Lankan perches), vehicles, and custom assets.
-- Market Watch for international USD reference quotes with a provider adapter (GoldAPI.io primary, Goldsafe.io fallback) covering gold (XAU), silver (XAG), platinum (XPT), and palladium (XPD). Copper (XCU) is mapped and displayed, currently marked unsupported by the bundled providers rather than estimated.
+- Market Watch for international USD reference quotes with a provider adapter: GoldAPI.io (optional primary, user key) plus a keyless gold-api.com fallback covering gold (XAU), silver (XAG), platinum (XPT), palladium (XPD), and copper (XCU, quoted via the COMEX HG continuous contract). Live fetching works without any configuration.
 - Interactive price timelines across 1 h, 12 h, 24 hours, 7 days, 30 days, 90 days, and all collected observations, with window changes computed from real stored observations.
 - Optional AI Market Reports powered by *your* Gemini API key: structured, model-generated analysis grounded only in your locally stored provider data, with per-metal evidence, risks, and conditional (never guaranteed) conclusions. No prices or claims come from the model itself.
 - Local on-device market-price history, capped at 500 observations per metal. History starts when observations are collected; the app does not invent or claim provider backfill.
@@ -49,11 +49,11 @@ The core local vault, asset tracking, valuations, portfolio charts, and saved Ma
 Copy `.env.example` to `.env.local` for development and configure only the services you use:
 
 ```bash
+# Optional: only needed to add GoldAPI.io as a primary source
 VITE_GOLDAPI_KEY=your_personal_low_privilege_key
-VITE_GOLDSAFE_KEY=your_personal_low_privilege_key
 ```
 
-GoldAPI.io is the primary provider and Goldsafe.io is the fallback. Both bundled adapters support XAU, XAG, XPT, and XPD. They do not currently support copper. API keys prefixed `VITE_` are compiled into a client bundle: do not ship a shared, privileged, or secret key. Use a personal, read-only, revocable key, or configure no key.
+gold-api.com is a keyless fallback and is always available: it supports all five metals, with copper served under its COMEX HG code (USD per pound, mapped to XCU). GoldAPI.io is an optional primary for XAU, XAG, XPT, and XPD with a free tier (~300 requests/month). It no longer uses a fallback key — the former Goldsafe.io provider is defunct and was retired in this release. API keys prefixed `VITE_` are compiled into a client bundle: do not ship a shared, privileged, or secret key. Use a personal, read-only, revocable key, or configure no key at all.
 
 `VITE_METALS_API_URL` can optionally point to a separately managed endpoint returning gold/silver and USD/LKR values; this is distinct from Market Watch. Any LKR conversion remains a reference calculation, not a verified local dealer price.
 
@@ -102,7 +102,7 @@ The tag-triggered [release workflow](.github/workflows/release.yml) builds macOS
 
 ## Troubleshooting
 
-- **No Market Watch prices:** configure at least one supported provider key, then use Refresh. Provider errors and unsupported metals are shown in the UI.
+- **No Market Watch prices:** Refresh fetches from the keyless gold-api.com fallback without any key; provider errors and unsupported metals are shown in the UI. A `VITE_GOLDAPI_KEY` is only needed if you want GoldAPI.io as an additional primary source.
 - **No chart history:** observations are recorded only after successful collection on this device; choose a wider range or collect additional observations.
 - **Values look unlike a Sri Lankan shop quote:** Market Watch quotes are international USD references. Enter a manual valuation or configure an appropriate source for your use case.
 - **Cannot unlock the vault:** use the in-app PIN recovery flow with the vault master password. Restore a backup only if you have verified it belongs to that vault.

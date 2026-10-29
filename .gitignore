@@ -8,3 +8,4 @@ dist
 
 # Tauri desktop build output
 src-tauri/target/
+dist-desktop/

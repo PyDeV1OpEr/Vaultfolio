@@ -55,6 +55,7 @@ import {
   msUntilNextFetch,
   scheduleDescription,
   estimateMonthlyRequests,
+  providerLabel,
 } from '../lib/marketWatch';
 import { formatDateTime, relativeTime } from '../lib/money';
 
@@ -137,7 +138,7 @@ export function MarketWatchPage() {
         setHistory(merged);
 
         const newCount = merged.length - history.length;
-        const provLabel = result.fallbackUsed ? 'GoldAPI + Goldsafe' : 'GoldAPI.io';
+        const provLabel = result.providerUsed === 'goldapi' ? 'GoldAPI.io' : 'gold-api.com (keyless fallback)';
 
         setLastFetchResult({ added: newCount, fallback: result.fallbackUsed, providerLabel: provLabel });
         updateSettings({ lastFetchAt: now });
@@ -356,17 +357,19 @@ function RefreshButton({
 
 function CredentialsNotice() {
   return (
-    <Card className="p-4 flex gap-3 border-warning/30 bg-warning-soft/30">
-      <AlertTriangle size={16} className="text-warning shrink-0 mt-0.5" />
+    <Card className="p-4 flex gap-3 border-accent/25 bg-accent-soft/20">
+      <AlertTriangle size={16} className="text-accent shrink-0 mt-0.5" />
       <div className="text-xs text-txt-muted space-y-1">
-        <p className="font-semibold text-txt">API credentials not configured</p>
+        <p className="font-semibold text-txt">Live prices refresh via the keyless gold-api.com fallback</p>
         <p>
-          Set <code className="bg-ink-800 px-1 rounded text-accent">VITE_GOLDAPI_KEY</code> and/or{' '}
-          <code className="bg-ink-800 px-1 rounded text-accent">VITE_GOLDSAFE_KEY</code> in your{' '}
-          <code className="bg-ink-800 px-1 rounded text-accent">.env.local</code> file to enable live price fetching.
+          All five metals (gold, silver, platinum, palladium, copper) are fetched without a key.
+          Optionally set{' '}
+          <code className="bg-ink-800 px-1 rounded text-accent">VITE_GOLDAPI_KEY</code> in your{' '}
+          <code className="bg-ink-800 px-1 rounded text-accent">.env.local</code> to add GoldAPI.io as a primary
+          source for gold, silver, platinum, and palladium.
         </p>
         <p className="text-txt-dim">
-          Existing locally stored price history is still displayed. New observations require at least one provider key.
+          Copper is quoted against the COMEX HG continuous contract (USD per pound), mapped to XCU.
         </p>
       </div>
     </Card>
@@ -542,7 +545,7 @@ function PriceSummaryCard({
                 <span>Retrieved: {relativeTime(latest.retrievedAt)}</span>
               </div>
               <p className="text-txt-dim">
-                Provider: {latest.providerId === 'goldapi' ? 'GoldAPI.io' : latest.providerId === 'goldsafe' ? 'Goldsafe.io' : latest.providerId}
+                Provider: {providerLabel(latest.providerId)}
               </p>
               <p className="text-txt-dim">
                 Chart: {rangeCount} point{rangeCount === 1 ? '' : 's'} ({RANGE_LABELS[selectedRange]})
@@ -705,7 +708,7 @@ function PriceChart({
             }}
             formatter={(v: number, _: string, item: any) => [
               `$${v.toFixed(4)} USD / ${METAL_META[metal].displayUnit}`,
-              `${item.payload?.fresh ? '✓' : '⚠'} ${item.payload?.provider === 'goldapi' ? 'GoldAPI.io' : 'Goldsafe.io'}`,
+              `${item.payload?.fresh ? '✓' : '⚠'} ${providerLabel(String(item.payload?.provider ?? ''))}`,
             ]}
           />
           {/* Reference line at the most recent price for visual anchor */}
@@ -903,9 +906,9 @@ function ScheduleCard({
             note="XAU, XAG, XPT, XPD — 1 req/metal/run"
           />
           <BudgetStat
-            label="Goldsafe.io requests/month"
-            value={budget.goldsafeRequests}
-            note="Batched request for fallback metals"
+            label="gold-api.com requests/month"
+            value={budget.goldapicomRequests}
+            note="Keyless fallback: copper (HG) and any metal GoldAPI.io does not supply"
           />
           <BudgetStat
             label="Total requests/month"
