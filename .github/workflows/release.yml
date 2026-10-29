@@ -61,21 +61,28 @@ jobs:
 
           ## What's new
           - Market Watch adds optional international USD reference quotes for gold,
-            silver, platinum, and palladium through GoldAPI.io with Goldsafe.io
-            fallback support. Copper remains visibly unsupported until a configured
-            provider supports it.
+            silver, platinum, palladium, and copper through GoldAPI.io with the
+            keyless gold-api.com fallback covering all five metals (copper via COMEX
+            HG, mapped to XCU) — live fetching works with zero configuration.
           - Price observations are validated and kept on-device, with freshness and
             provider status plus interactive charts over the observations collected
             on that device. This release does not claim historical provider backfill.
+          - **AI Market Reports** (new in 1.0.5): optional structured reports via the
+            user's own Gemini key (gemini-2.5-flash, native JSON schema, locally
+            re-validated). Reports are assembled from on-device provider
+            observations only — missing windows are labelled incomplete, never
+            filled with invented data.
           - Portfolio Analytics & Insights includes allocation, cost-versus-value,
             top-holding, and logged portfolio-valuation charts.
 
           ## Market data and limitations
-          - Market Watch fetching is optional and needs a user's own GoldAPI.io and/or
-            Goldsafe.io key. Its USD references and any LKR conversion are not Sri
+          - Market Watch fetching works out of the box via the keyless gold-api.com
+            fallback; GoldAPI.io remains an optional primary source with the user's
+            own key. Its USD references and any LKR conversion are not Sri
             Lankan dealer prices.
-          - Gemini is not required or configured for this release. An exhausted
-            Gemini quota does not affect the local vault, portfolio, or Market Watch.
+          - Gemini is not required: without a user-configured key, Reports show
+            setup guidance only. An exhausted Gemini quota does not affect the
+            local vault, portfolio, or Market Watch.
 
           ### Install notes
           - The macOS builds and the Windows build are currently **unsigned**:

@@ -29,7 +29,8 @@ import {
   loadMarketWatchSettings,
   saveMarketWatchSettings,
   goldApiAdapter,
-  goldsafeAdapter,
+  goldApiComAdapter,
+  providerLabel,
   type PriceObservation,
   type MetalCode,
   type MarketWatchSettings,
@@ -130,10 +131,20 @@ describe('Provider supported metals', () => {
     expect(errors['XCU']).toMatch(/not supported/i);
   });
 
-  it('Goldsafe adapter declares XCU as unsupported', async () => {
-    const { observations, errors } = await goldsafeAdapter.fetchAll(['XCU'], 'fake_key');
-    expect(observations).toHaveLength(0);
-    expect(errors['XCU']).toMatch(/not supported/i);
+  it('gold-api.com keyless adapter declares all five metals supported', () => {
+    expect(goldApiComAdapter.supported).toContain('XAU');
+    expect(goldApiComAdapter.supported).toContain('XAG');
+    expect(goldApiComAdapter.supported).toContain('XPT');
+    expect(goldApiComAdapter.supported).toContain('XPD');
+    expect(goldApiComAdapter.supported).toContain('XCU');
+  });
+
+  it('providerLabel maps stored provider ids to readable names (incl. retired Goldsafe)', () => {
+    expect(providerLabel('goldapi')).toBe('GoldAPI.io');
+    expect(providerLabel('goldapicom')).toBe('gold-api.com');
+    expect(providerLabel('goldsafe')).toMatch(/retired/);
+    expect(providerLabel('manual')).toBe('Manual entry');
+    expect(providerLabel('unknown-provider')).toBe('unknown-provider');
   });
 
   it('GoldAPI supported set includes XAU, XAG, XPT, XPD', () => {
@@ -227,7 +238,7 @@ describe('mergeObservations', () => {
 
   it('accepts same timestamp but different provider as a distinct observation', () => {
     const obs1 = fakeObs({ id: 'a', providerId: 'goldapi' });
-    const obs2 = fakeObs({ id: 'b', providerId: 'goldsafe' });
+    const obs2 = fakeObs({ id: 'b', providerId: 'goldapicom' });
     expect(mergeObservations([obs1], [obs2])).toHaveLength(2);
   });
 
@@ -245,18 +256,18 @@ describe('estimateMonthlyRequests', () => {
     const metals: MetalCode[] = ['XAU', 'XAG', 'XPT', 'XPD'];
     const result = estimateMonthlyRequests(2, metals);
     expect(result.goldapiRequests).toBe(4 * 2 * 30);
-    expect(result.goldsafeRequests).toBe(0); // no XCU in list
+    expect(result.goldapicomRequests).toBe(0); // no copper in list
     expect(result.totalRequests).toBe(240);
   });
 
-  it('counts goldsafe requests as 1 per run when XCU is added (XCU unsupported by both currently)', () => {
+  it('counts copper through the keyless fallback: XCU adds 1 req/run on gold-api.com', () => {
     const metals: MetalCode[] = ['XAU', 'XAG', 'XPT', 'XPD', 'XCU'];
     const result = estimateMonthlyRequests(2, metals);
-    // XCU is not on GOLDSAFE_SUPPORTED either currently, so goldsafe requests = 0
-    expect(result.goldsafeRequests).toBe(0);
+    // XCU is not on GoldAPI.io; it is served by the keyless gold-api.com fallback (HG)
+    expect(result.goldapicomRequests).toBe(1 * 2 * 30);
     // GoldAPI handles 4 metals (XAU, XAG, XPT, XPD)
     expect(result.goldapiRequests).toBe(4 * 2 * 30);
-    expect(result.totalRequests).toBe(4 * 2 * 30);
+    expect(result.totalRequests).toBe(5 * 2 * 30);
   });
 
   it('scales correctly with 1 fetch per day', () => {

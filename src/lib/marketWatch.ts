@@ -2,7 +2,10 @@
  * Market Watch — on-device price observation store, provider adapters, and scheduler.
  *
  * Design principles:
- *  - Two real API providers: GoldAPI.io (primary) and Goldsafe.io (secondary/fallback).
+ *  - Two real API providers: GoldAPI.io (primary, key-optional) and
+ *    gold-api.com (keyless fallback, covers all five metals incl. copper).
+ *    Goldsafe.io was removed in 1.0.4: its API domain is defunct (domain
+ *    parked for sale; TLS handshake fails on api.goldsafe.io).
  *  - All credentials read from import.meta.env at runtime; never hardcoded.
  *  - Price history persists in localStorage under the user's device only.
  *  - Scheduling targets ~2 fetches/day (configurable); no tight polling loops.
@@ -27,7 +30,10 @@ export const METAL_META: Record<
   XCU: { label: 'Copper', unit: 'pound', displayUnit: 'lb', altUnit: 'metric tonne', category: 'industrial' },
 };
 
-export type ProviderId = 'goldapi' | 'goldsafe' | 'manual';
+export type ProviderId = 'goldapi' | 'goldapicom' | 'manual';
+// NOTE: locally stored history may still contain observations from the
+// retired 'goldsafe' provider (ProviderId has since dropped it). loadPriceHistory
+// accepts stored records structurally, so old rows keep rendering.
 
 export interface PriceObservation {
   /** Internal unique id */
@@ -123,8 +129,38 @@ const PRICE_BOUNDS: Record<MetalCode, { min: number; max: number }> = {
 // GoldAPI.io supported metals in their API (XCU is NOT supported by GoldAPI)
 const GOLDAPI_SUPPORTED: MetalCode[] = ['XAU', 'XAG', 'XPT', 'XPD'];
 
-// Goldsafe.io supported metals (from observed API response shape; XCU unknown)
-const GOLDSAFE_SUPPORTED: MetalCode[] = ['XAU', 'XAG', 'XPT', 'XPD'];
+// gold-api.com (https://gold-api.com) — keyless public API, no authentication
+// and no published rate limit. Copper is quoted under the COMEX HG continuous
+// contract code (USD per pound), presented in Vaultfolio as XCU.
+const GOLDAPICOM_SUPPORTED: MetalCode[] = ['XAU', 'XAG', 'XPT', 'XPD', 'XCU'];
+const GOLDAPICOM_SYMBOL: Record<MetalCode, string> = {
+  XAU: 'XAU',
+  XAG: 'XAG',
+  XPT: 'XPT',
+  XPD: 'XPD',
+  XCU: 'HG',
+};
+
+/** Unit basis for a gold-api.com price: USD/troy oz for precious metals, USD/lb for copper. */
+function goldApiComUnit(metal: MetalCode): string {
+  return metal === 'XCU' ? 'pound' : 'troy_ounce';
+}
+
+/** Human-readable provider label for a stored observation's providerId. */
+export function providerLabel(providerId: string): string {
+  switch (providerId) {
+    case 'goldapi':
+      return 'GoldAPI.io';
+    case 'goldapicom':
+      return 'gold-api.com';
+    case 'manual':
+      return 'Manual entry';
+    case 'goldsafe':
+      return 'Goldsafe.io (retired)';
+    default:
+      return providerId;
+  }
+}
 
 /* ─────────────────────────── Storage ─────────────────────────── */
 
@@ -428,76 +464,63 @@ export const goldApiAdapter = {
   },
 };
 
-/* ── Goldsafe.io adapter ── */
-export const goldsafeAdapter = {
-  id: 'goldsafe' as ProviderId,
-  label: 'Goldsafe.io',
-  supported: GOLDSAFE_SUPPORTED,
+/* ── gold-api.com adapter (keyless fallback) ── */
+export const goldApiComAdapter = {
+  id: 'goldapicom' as ProviderId,
+  label: 'gold-api.com',
+  supported: GOLDAPICOM_SUPPORTED,
 
   async fetchAll(
     metals: MetalCode[],
-    apiKey: string,
+    _apiKey?: string, // keyless provider — parameter kept for adapter-shape compatibility
   ): Promise<{ observations: PriceObservation[]; errors: Record<MetalCode, string | null>; retryAfterMs: number | null }> {
-    const supported = metals.filter((m) => GOLDSAFE_SUPPORTED.includes(m));
-    const unsupported = metals.filter((m) => !GOLDSAFE_SUPPORTED.includes(m));
+    const supported = metals.filter((m) => GOLDAPICOM_SUPPORTED.includes(m));
+    const unsupported = metals.filter((m) => !GOLDAPICOM_SUPPORTED.includes(m));
 
     const errors: Record<MetalCode, string | null> = {} as Record<MetalCode, string | null>;
     for (const m of unsupported) {
-      errors[m] = `${m} is not supported by Goldsafe.io`;
+      errors[m] = `${m} is not supported by gold-api.com`;
     }
 
-    if (supported.length === 0) {
-      return { observations: [], errors, retryAfterMs: null };
-    }
+    const observations: PriceObservation[] = [];
+    let retryAfterMs: number | null = null;
 
-    // Goldsafe supports a comma-separated symbols parameter — single request for all metals
-    const symbolsParam = supported.join(',');
-    const url = `https://api.goldsafe.io/v1/prices?symbols=${symbolsParam}`;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10_000);
-
-    try {
-      const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' },
-        signal: controller.signal,
-      });
-      if (!res.ok) {
-        const retryAfterMs = res.status === 429 ? parseRetryAfter(res) : null;
-        for (const m of supported) {
-          errors[m] = `Goldsafe.io returned HTTP ${res.status}${retryAfterMs !== null ? ` — back off ${Math.round(retryAfterMs / 1000)}s` : ''}`;
-        }
-        return { observations: [], errors, retryAfterMs };
-      }
-
-      const j = (await res.json()) as Record<string, unknown>;
-      // Expected shape: { symbols: Array<{ symbol, quote_currency, unit, contract_type, price, is_stale, computed_at }> }
-      const symbolsArr = Array.isArray(j.symbols) ? j.symbols : [];
-
-      const observations: PriceObservation[] = [];
-      const seen = new Set<MetalCode>();
-
-      for (const entry of symbolsArr as Record<string, unknown>[]) {
-        const metal = entry.symbol as MetalCode;
-        if (!metal || !GOLDSAFE_SUPPORTED.includes(metal)) continue;
-        seen.add(metal);
-
-        const priceRaw = entry.price;
-        const unit = typeof entry.unit === 'string' ? entry.unit : 'troy_ounce';
-        const validationErr = validatePrice(metal, typeof priceRaw === 'string' ? Number(priceRaw) : priceRaw, unit);
-        if (validationErr) {
-          errors[metal] = `Goldsafe.io validation: ${validationErr}`;
+    // gold-api.com serves one symbol per endpoint — sequential requests
+    for (const metal of supported) {
+      const url = `https://api.gold-api.com/price/${GOLDAPICOM_SYMBOL[metal]}`;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10_000);
+      try {
+        const res = await fetch(url, {
+          headers: { Accept: 'application/json' },
+          signal: controller.signal,
+        });
+        if (!res.ok) {
+          if (res.status === 429) {
+            const retry = parseRetryAfter(res);
+            if (retry !== null && (retryAfterMs === null || retry > retryAfterMs)) {
+              retryAfterMs = retry;
+            }
+            errors[metal] = `gold-api.com rate limit (HTTP 429) for ${metal}${retry ? ` — back off ${Math.round(retry / 1000)}s` : ''}`;
+          } else {
+            errors[metal] = `gold-api.com returned HTTP ${res.status} for ${metal}`;
+          }
           continue;
         }
 
-        const priceNum = Number(priceRaw);
-        const isStale = entry.is_stale === true;
-        const computedAt =
-          typeof entry.computed_at === 'string'
-            ? entry.computed_at
-            : new Date().toISOString();
+        const j = (await res.json()) as Record<string, unknown>;
+        // Documented shape: { price: number, symbol, name, currency: 'USD', updatedAt: ISO-8601 }
+        const rawPrice = j.price;
+        const unit = goldApiComUnit(metal);
+        const validationErr = validatePrice(metal, rawPrice, unit);
+        if (validationErr) {
+          errors[metal] = `gold-api.com validation: ${validationErr}`;
+          continue;
+        }
 
-        const pricePerGramUsd =
-          unit === 'troy_ounce' ? priceNum / GRAMS_PER_OZT : null;
+        const priceNum = Number(rawPrice);
+        const providerTimestamp =
+          typeof j.updatedAt === 'string' ? j.updatedAt : new Date().toISOString();
 
         observations.push({
           id: newId(),
@@ -505,39 +528,30 @@ export const goldsafeAdapter = {
           price: priceNum,
           currency: 'USD',
           unit,
-          quoteType: (entry.contract_type === 'spot' ? 'spot' : 'indicative') as PriceObservation['quoteType'],
-          providerId: 'goldsafe',
-          providerTimestamp: computedAt,
+          quoteType: 'spot',
+          providerId: 'goldapicom',
+          providerTimestamp,
           retrievedAt: new Date().toISOString(),
           change: null,
           changePct: null,
-          providerFresh: !isStale,
-          exchangeLabel: 'Goldsafe',
-          pricePerGramUsd,
+          providerFresh: true,
+          exchangeLabel: 'gold-api.com',
+          pricePerGramUsd: unit === 'troy_ounce' ? priceNum / GRAMS_PER_OZT : null,
         });
         errors[metal] = null;
-      }
-
-      // Mark metals that weren't returned
-      for (const m of supported) {
-        if (!seen.has(m) && errors[m] === undefined) {
-          errors[m] = `Goldsafe.io did not return data for ${m}`;
+      } catch (e) {
+        if ((e as Error).name === 'AbortError') {
+          console.warn(`[MarketWatch] gold-api.com timeout for ${metal}`);
+          errors[metal] = `gold-api.com request timed out for ${metal}`;
+        } else {
+          errors[metal] = `gold-api.com request failed for ${metal}`;
         }
+      } finally {
+        clearTimeout(timeout);
       }
-
-      return { observations, errors, retryAfterMs: null };
-    } catch (e) {
-      if ((e as Error).name === 'AbortError') {
-        console.warn('[MarketWatch] Goldsafe.io timeout');
-      }
-      const retryAfterMs = e instanceof RateLimitedError ? e.retryAfterMs : null;
-      for (const m of supported) {
-        if (!errors[m]) errors[m] = e instanceof RateLimitedError ? e.message : 'Goldsafe.io request failed';
-      }
-      return { observations: [], errors, retryAfterMs };
-    } finally {
-      clearTimeout(timeout);
     }
+
+    return { observations, errors, retryAfterMs };
   },
 };
 
@@ -547,10 +561,9 @@ export const goldsafeAdapter = {
  * Credentials are read from environment variables at call time,
  * never stored in source or bundled as constants.
  */
-function readCredentials(): { goldApiKey: string | null; goldsafeKey: string | null } {
+function readCredentials(): { goldApiKey: string | null } {
   return {
     goldApiKey: (import.meta.env.VITE_GOLDAPI_KEY as string | undefined) ?? null,
-    goldsafeKey: (import.meta.env.VITE_GOLDSAFE_KEY as string | undefined) ?? null,
   };
 }
 
@@ -563,7 +576,7 @@ function readCredentials(): { goldApiKey: string | null; goldsafeKey: string | n
  * are represented in result.errors).
  */
 export async function fetchLatestPrices(metals: MetalCode[]): Promise<ProviderResult> {
-  const { goldApiKey, goldsafeKey } = readCredentials();
+  const { goldApiKey } = readCredentials();
   const fetchedAt = new Date().toISOString();
 
   const allErrors: Record<MetalCode, string | null> = {} as Record<MetalCode, string | null>;
@@ -597,32 +610,28 @@ export async function fetchLatestPrices(metals: MetalCode[]): Promise<ProviderRe
   );
   const needsFallback = metals.filter((m) => !primarySucceeded.has(m));
 
-  // --- Fallback: Goldsafe.io ---
-  if (goldsafeKey && needsFallback.length > 0) {
+  // --- Fallback: gold-api.com (keyless; always attempted for missing metals) ---
+  if (needsFallback.length > 0) {
     fallbackUsed = true;
-    providerUsed = 'goldsafe';
-    const fallbackResult = await goldsafeAdapter.fetchAll(needsFallback, goldsafeKey);
+    const fallbackResult = await goldApiComAdapter.fetchAll(needsFallback);
     observations = [...observations, ...fallbackResult.observations];
     if (fallbackResult.retryAfterMs !== null && retryAfterMs === null) {
       retryAfterMs = fallbackResult.retryAfterMs;
     }
     for (const [metal, err] of Object.entries(fallbackResult.errors)) {
-      // Only update error if primary also failed
+      // Only update the error if the primary also failed for that metal
       if (allErrors[metal as MetalCode]) {
         allErrors[metal as MetalCode] = err;
       }
     }
-  } else if (!goldsafeKey && needsFallback.length > 0) {
-    for (const m of needsFallback) {
-      if (allErrors[m]) {
-        allErrors[m] = `${allErrors[m]}; Goldsafe key not configured (VITE_GOLDSAFE_KEY)`;
-      }
-    }
   }
 
-  // Final provider tag: if we got SOME from primary, tag as primary+fallback if fallback also ran
+  // Final provider tag: 'goldapi' iff at least one primary observation landed;
+  // otherwise the keyless fallback carries the label.
   if (primarySucceeded.size > 0) {
-    providerUsed = fallbackUsed ? 'goldapi' : 'goldapi';
+    providerUsed = 'goldapi';
+  } else if (fallbackUsed) {
+    providerUsed = 'goldapicom';
   }
 
   return { observations, errors: allErrors, providerUsed, fallbackUsed, fetchedAt, retryAfterMs };
@@ -656,26 +665,25 @@ export function scheduleDescription(settings: MarketWatchSettings): string {
 
 /**
  * Estimated monthly requests.
- * GoldAPI requires one request per metal per run.
- * Goldsafe can batch all metals in one request.
- * Returns { goldapi: number, goldsafe: number, total: number }
+ * Both providers are billed per request: GoldAPI.io requires one request per
+ * supported metal per run; the keyless gold-api.com fallback serves metals
+ * GoldAPI.io does not (currently only XCU, via its HG code).
+ * Note: when no GoldAPI.io key is configured, the fallback serves ALL metals;
+ * this estimator does not model that configuration.
  */
 export function estimateMonthlyRequests(
   fetchesPerDay: number,
   metals: MetalCode[],
-): { goldapiRequests: number; goldsafeRequests: number; totalRequests: number } {
+): { goldapiRequests: number; goldapicomRequests: number; totalRequests: number } {
   const goldapiMetals = metals.filter((m) => GOLDAPI_SUPPORTED.includes(m));
-  const goldsafeMetals = metals.filter(
-    (m) => GOLDSAFE_SUPPORTED.includes(m) && !GOLDAPI_SUPPORTED.includes(m),
-  );
-  // GoldAPI = one request per metal per run (sequential)
+  const goldapicomMetals = metals.filter((m) => !GOLDAPI_SUPPORTED.includes(m));
+  // One request per metal per run for each provider (sequential)
   const goldapiRequests = goldapiMetals.length * fetchesPerDay * 30;
-  // Goldsafe = one batched request per run for any missing metals
-  const goldsafeRequests = goldsafeMetals.length > 0 ? fetchesPerDay * 30 : 0;
+  const goldapicomRequests = goldapicomMetals.length * fetchesPerDay * 30;
   return {
     goldapiRequests,
-    goldsafeRequests,
-    totalRequests: goldapiRequests + goldsafeRequests,
+    goldapicomRequests,
+    totalRequests: goldapiRequests + goldapicomRequests,
   };
 }
 
@@ -739,15 +747,15 @@ export function formatObservationPrice(
 /** Non-secret check: are the required env variables set? */
 export function credentialStatus(): {
   goldApiConfigured: boolean;
-  goldsafeConfigured: boolean;
+  fallbackProvider: string;
   anyConfigured: boolean;
 } {
-  const { goldApiKey, goldsafeKey } = readCredentials();
+  const { goldApiKey } = readCredentials();
   const goldApiConfigured = !!goldApiKey && goldApiKey.length > 10;
-  const goldsafeConfigured = !!goldsafeKey && goldsafeKey.length > 10;
   return {
     goldApiConfigured,
-    goldsafeConfigured,
-    anyConfigured: goldApiConfigured || goldsafeConfigured,
+    fallbackProvider: 'gold-api.com (keyless)',
+    // The fallback needs no credential, so live fetching is always possible.
+    anyConfigured: true,
   };
 }

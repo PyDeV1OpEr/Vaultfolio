@@ -178,7 +178,7 @@ export function buildReportPrompt(snapshot: MarketSnapshot): string {
     period: snapshot.period,
     period_window_hours: windowHours,
     data_provenance:
-      'Prices and period changes below were computed by Vaultfolio from real provider observations stored on the user’s device (GoldAPI.io and/or Goldsafe.io spot quotes, USD). They are the ONLY numeric market facts available to you.',
+      'Prices and period changes below were computed by Vaultfolio from real provider observations stored on the user’s device (GoldAPI.io and/or keyless gold-api.com spot quotes, USD; copper quoted via COMEX HG as XCU). They are the ONLY numeric market facts available to you.',
     metals: snapshot.metals.map((m) => ({
       symbol: m.symbol,
       metal: m.metal,

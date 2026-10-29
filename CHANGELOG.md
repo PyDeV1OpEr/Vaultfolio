@@ -4,6 +4,13 @@ All notable changes to Vaultfolio are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [SemVer](https://semver.org/spec/v2.0.0.html) — MAJOR.MINOR.PATCH, with PATCH reserved for fixes that don't change persisted data or user-visible flows.
 
+## [1.0.5] — 2026-10-29
+
+### Changed
+- **Market data provider repair**: the Goldsafe.io fallback (dead domain — the API host no longer completes a TLS handshake) has been replaced with a verified, documented, **keyless** gold-api.com fallback. Market Watch live fetching now works with zero configuration and covers all five metals, including copper (quoted as COMEX HG, USD per pound, mapped to XCU). `VITE_GOLDSAFE_KEY` is no longer read; GoldAPI.io remains an optional primary source via `VITE_GOLDAPI_KEY`.
+- **AI Market Reports** (merged from `feat/gemini-market-reports`): optional report generation with a user-configured Gemini key (`gemini-2.5-flash`, native structured-output `responseSchema`, zod re-validation on arrival). Reports are assembled strictly from on-device provider observations — the model never supplies prices; missing windows render as incomplete/insufficient-data rather than fabricated. Reports history is stored locally; the key is sealed with AES-256-GCM envelope encryption under the vault DEK (Settings → Gemini AI).
+- Market Watch header change stat is now computed from the selected window's real stored observations (1 h/12 h/24 h/7 d/30 d/90 d), falling back to the provider's session change only when a window holds fewer than two points.
+
 ## [1.0.4] — 2026-10-26
 
 ### Added
