@@ -201,6 +201,12 @@ export interface MarketSnapshot {
   asOf: string;
   isDemo: boolean;
   isLive: boolean;
+  /** Where the FX rate came from (independent of the metal-price source). */
+  fxSourceLabel?: string | null;
+  /** Provider timestamp for the FX rate, for auditing. */
+  fxAsOf?: string | null;
+  /** True when the FX quote served is a stale cache after a failed refresh. */
+  fxStale?: boolean;
 }
 
 export interface PortfolioStats {

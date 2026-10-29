@@ -7,6 +7,8 @@ import type {
   ValuationMethod,
 } from './types';
 import { purityFraction, toGrams } from './units';
+import { loadPriceHistory, observationsForMetal, type PriceObservation } from './marketWatch';
+import { computeSpotValue, metalNameToCode, type SpotValuation } from './spotValue';
 
 export { purityFraction };
 
@@ -34,6 +36,7 @@ export interface ResolvedValuation {
   calculatedValueLkr?: number | null;
 }
 
+/** All monetary amounts are LKR. See `ResolvedValuation.explanation` provenance. */
 const METHOD_LABEL: Record<ValuationMethod, string> = {
   live_market: 'Live market data',
   recent_market: 'Recent market data',
@@ -41,6 +44,15 @@ const METHOD_LABEL: Record<ValuationMethod, string> = {
   user: 'User-entered value',
   indicative: 'Indicative model estimate',
   unavailable: 'Valuation unavailable',
+};
+
+const METHOD_PRIORITY: Record<ValuationMethod, number> = {
+  unavailable: 0,
+  indicative: 1,
+  calculated: 2,
+  recent_market: 3,
+  live_market: 4,
+  user: 5,
 };
 
 export const valuationMethodLabel = (m: ValuationMethod): string => METHOD_LABEL[m];
@@ -71,6 +83,34 @@ export function metalResaleValueLkr(attrs: GoldSilverAttrs, market: MarketSnapsh
 }
 
 /**
+ * Compute the spot-market fine-metal value for a gold/silver asset from the
+ * on-device Market Watch observation store, or null when no observation or
+ * verified FX rate is available. Kept here so every page benefits without
+ * threading history through every call site.
+ */
+function spotValuationFor(
+  attrs: GoldSilverAttrs,
+  market: MarketSnapshot,
+): SpotValuation | null {
+  const purity = purityFraction(attrs.purity);
+  const usdLkr = market.usdLkr;
+  if (purity === null || !(attrs.weight > 0) || !usdLkr || !Number.isFinite(usdLkr) || usdLkr <= 0) {
+    return null;
+  }
+  const code = metalNameToCode(attrs.metal);
+  if (!code) return null;
+  const history = loadPriceHistory();
+  return computeSpotValue({
+    metalCode: code,
+    weightGrams: toGrams(attrs.weight, attrs.weightUnit),
+    purity,
+    observations: observationsForMetal(history as PriceObservation[], code),
+    usdLkr,
+    usdLkrAsOf: market.fxAsOf ?? null,
+  });
+}
+
+/**
  * Resolve the asset's present value using the priority ladder.
  * A user-set valuation (method 'user') is authoritative and is never
  * replaced by a computed figure; the computed figure is surfaced
@@ -91,23 +131,52 @@ export function resolveAssetValuation(asset: Asset, market: MarketSnapshot | nul
     };
   }
 
-  // 2) Transparent calculation only when a non-demo manual override or verified market rate exists.
-  if (asset.category === 'gold_silver' && market && !market.isDemo) {
-    const mv = metalValueLkr(asset.attributes as GoldSilverAttrs, market);
-    if (mv) {
-      return {
-        valueLkr: mv.valueLkr,
-        method: 'calculated',
-        sourceLabel: market.sourceLabel,
-        confidence: 'medium',
-        explanation:
-          `Fine-metal content: ${mv.grams.toFixed(2)} g × ${mv.purity} purity × ${market.goldPerGramLkr && (asset.attributes as GoldSilverAttrs).metal === 'gold' ? 'gold' : 'silver'} reference price of ${
-            (asset.attributes as GoldSilverAttrs).metal === 'gold'
-              ? `LKR ${market.goldPerGramLkr?.toLocaleString('en-US')}/g`
-              : `LKR ${market.silverPerGramLkr?.toLocaleString('en-US')}/g`
-          } (${market.sourceLabel}).`,
-        calculatedValueLkr: mv.valueLkr,
-      };
+  if (asset.category === 'gold_silver') {
+    const attrs = asset.attributes as GoldSilverAttrs;
+
+    // 2a) Spot-market pricing from the Market Watch observation store — covers
+    // gold, silver, platinum, palladium and copper with freshness-derived
+    // methods. Fresh and recent observations outrank the legacy proxy path.
+    if (market && !market.isDemo) {
+      const spot = spotValuationFor(attrs, market);
+      // Cheap legacy fallback (configured proxy): gold/silver LKR/gram only.
+      const legacy = metalValueLkr(attrs, market);
+      const candidates: { valueLkr: number; method: ValuationMethod; sourceLabel: string; confidence: 'high' | 'medium' | 'low'; explanation: string; calculatedValueLkr: number }[] = [];
+      if (spot) {
+        candidates.push({
+          valueLkr: spot.valueLkr,
+          method: spot.method,
+          sourceLabel: `${spot.providerLabel} · Market Watch`,
+          confidence: spot.confidence,
+          explanation: spot.explanation,
+          calculatedValueLkr: spot.valueLkr,
+        });
+      }
+      if (legacy) {
+        candidates.push({
+          valueLkr: legacy.valueLkr,
+          method: 'calculated',
+          sourceLabel: market.sourceLabel,
+          confidence: 'medium',
+          explanation: `Fine-metal content: ${legacy.grams.toFixed(2)} g × ${legacy.purity} purity × ${
+            attrs.metal === 'gold' ? `gold LKR ${market.goldPerGramLkr?.toLocaleString('en-US')}/g` : `silver LKR ${market.silverPerGramLkr?.toLocaleString('en-US')}/g`
+          } reference price (${market.sourceLabel}).`,
+          calculatedValueLkr: legacy.valueLkr,
+        });
+      }
+      if (candidates.length > 0) {
+        // Highest priority = freshest source. Stale spot loses to a fresh proxy.
+        candidates.sort((a, b) => METHOD_PRIORITY[b.method] - METHOD_PRIORITY[a.method]);
+        const best = candidates[0];
+        return {
+          valueLkr: best.valueLkr,
+          method: best.method,
+          sourceLabel: best.sourceLabel,
+          confidence: best.confidence,
+          explanation: best.explanation,
+          calculatedValueLkr: best.calculatedValueLkr,
+        };
+      }
     }
   }
 
@@ -137,10 +206,16 @@ export function resolveAssetValuation(asset: Asset, market: MarketSnapshot | nul
   };
 }
 
-/** Resale proceeds preference: explicit resale entry beats derived metal resale. */
+/** Resale proceeds: explicit resale entry beats derived fine-metal resale. */
 export function resolveResaleValue(asset: Asset, market: MarketSnapshot | null): number | null {
   if (asset.resaleValueLkr !== null && asset.resaleValueLkr !== undefined) return asset.resaleValueLkr;
-  if (asset.category === 'gold_silver' && market && !market.isDemo) return metalResaleValueLkr(asset.attributes as GoldSilverAttrs, market);
+  if (asset.category !== 'gold_silver') return null;
+  // Fine-metal value from ANY verified source (spot store or configured proxy).
+  const resolved = resolveAssetValuation(asset, market);
+  if (resolved.calculatedValueLkr != null) {
+    const spread = (asset.attributes as GoldSilverAttrs).dealerSpreadPct ?? 0;
+    return resolved.calculatedValueLkr * (1 - Math.min(50, Math.max(0, spread)) / 100);
+  }
   return null;
 }
 

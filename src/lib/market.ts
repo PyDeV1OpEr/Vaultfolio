@@ -1,4 +1,5 @@
 import type { ManualPriceOverride, MarketSnapshot } from './types';
+import { getUsdLkr, FX_SOURCE_LABEL } from './fx';
 
 /**
  * Provider-independent market-data service for gold and silver plus FX.
@@ -107,6 +108,25 @@ function writeCache(s: MarketSnapshot) {
   }
 }
 
+/**
+ * Fill in an automatic USD/LKR rate when neither the configured provider nor
+ * a manual override supplies one. The quote carries its provider timestamp;
+ * stale caches keep `fxStale` so callers can warn instead of pretending.
+ */
+async function withAutoFx(s: MarketSnapshot): Promise<MarketSnapshot> {
+  if (s.usdLkr != null && Number.isFinite(s.usdLkr)) return s;
+  const fx = await getUsdLkr();
+  if (!fx.quote) return s; // no verified rate — stay null, never invent one
+  return {
+    ...s,
+    usdLkr: fx.quote.rate,
+    fxSourceLabel: fx.quote.stale ? `${FX_SOURCE_LABEL} (stale cache)` : FX_SOURCE_LABEL,
+    fxAsOf: fx.quote.asOf,
+    fxStale: fx.quote.stale,
+    sourceLabel: s.sourceLabel.includes('FX') ? s.sourceLabel : `${s.sourceLabel}; FX: exchangerate-api.com`,
+  };
+}
+
 /** Resolve market data with caching + manual overrides. */
 export async function loadMarketData(
   overrides: Partial<Record<ManualPriceOverride['kind'], number>>,
@@ -115,16 +135,16 @@ export async function loadMarketData(
     const cached = readCache();
     const cacheFresh = cached && Date.now() - new Date(cached.asOf).getTime() < CACHE_TTL_MS;
     if (cacheFresh && cached && !cached.isDemo) {
-      return applyOverrides(cached, overrides);
+      return applyOverrides(await withAutoFx(cached), overrides);
     }
     let snap = await p.fetch();
     if (snap) {
       if (!cacheFresh || !cached || cached.isDemo) writeCache(snap);
-      return applyOverrides(snap, overrides);
+      return applyOverrides(await withAutoFx(snap), overrides);
     }
   }
   const cached = readCache();
-  return applyOverrides(cached ?? DEFAULT_MARKET, overrides);
+  return applyOverrides(await withAutoFx(cached ?? DEFAULT_MARKET), overrides);
 }
 
 export function applyOverrides(s: MarketSnapshot, o: Partial<Record<ManualPriceOverride['kind'], number>>): MarketSnapshot {
