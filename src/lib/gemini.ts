@@ -22,6 +22,7 @@ import { METAL_META, type MetalCode } from './marketWatch';
 
 /* ─────────────────────────── Model / endpoint ─────────────────────────── */
 
+export const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 export const GEMINI_MODEL = 'gemini-2.5-flash';
 const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 const REQUEST_TIMEOUT_MS = 60_000;
@@ -237,11 +238,11 @@ export function sanitizeModelText(s: string): string {
 
 /* ─────────────────────────── API call ─────────────────────────── */
 
-interface GeminiCandidate {
+export interface GeminiCandidate {
   content?: { parts?: Array<{ text?: string }>; role?: string };
   finishReason?: string;
 }
-interface GeminiApiResponse {
+export interface GeminiApiResponse {
   candidates?: GeminiCandidate[];
   promptFeedback?: { blockReason?: string };
   error?: { code?: number; message?: string; status?: string };

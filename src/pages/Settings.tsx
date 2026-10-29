@@ -17,6 +17,7 @@ import {
   User as UserIcon,
 } from 'lucide-react';
 import { useData } from '../store/dataStore';
+import { probeConnection, GEMINI_MODELS, getSelectedModel, setSelectedModel, type ProbeResult } from '../lib/insights';
 import { SUPPORTED_CURRENCIES, downloadTextFile } from '../lib/money';
 import { categoryMeta } from '../lib/categories';
 import { supabaseConfigured } from '../lib/supabase';
@@ -30,7 +31,7 @@ export function Settings() {
     settings, setSettings, assets, records, market, mode, signOut, userEmail,
     hasPin, pinLength, registerPin, changePin, removePin, changePassword, lock,
     exportBackup, restoreBackup, wipeVault, pushToast,
-    saveGeminiKey, hasGeminiKeyStored, clearGeminiKey,
+    saveGeminiKey, hasGeminiKeyStored, clearGeminiKey, loadGeminiKey,
   } = useData();
   const [exportOpen, setExportOpen] = useState(false);
   const [wipeOpen, setWipeOpen] = useState(false);
@@ -58,6 +59,11 @@ export function Settings() {
 
   const keyConfigured = hasGeminiKeyStored();
   const sealMode = credentialSealMode('gemini-api-key') ?? 'vault-dek';
+
+  /* AI Insights model + connection probe state */
+  const [geminiModel, setGeminiModel] = useState(getSelectedModel);
+  const [probeBusy, setProbeBusy] = useState(false);
+  const [probeResult, setProbeResult] = useState<ProbeResult | null>(null);
 
   const configStatus = useMemo(
     () => ({
@@ -451,7 +457,7 @@ export function Settings() {
 
       {/* Gemini AI (user-configured key, envelope-encrypted at rest) */}
       <Card>
-        <CardHeader title="Gemini AI" subtitle="User-configured key for AI Market Reports" />
+        <CardHeader title="Gemini AI" subtitle="User-configured key for AI Market Reports and AI Insights" />
         <div className="px-5 pb-5 space-y-3">
           <div className="flex items-center justify-between gap-3 text-[13px]">
             <span className="flex items-center gap-2">
@@ -468,6 +474,62 @@ export function Settings() {
               Seal mode: {sealMode === 'passphrase' ? 'passphrase-sealed envelope (your vault passphrase wraps the key)' : 'vault DEK (key is sealed together with your vault)'}.
               The plaintext key is never written to disk or logs.
             </p>
+          )}
+          <div className="flex items-center justify-between gap-3 text-[13px]">
+            <span className="flex items-center gap-2">
+              <Sparkles size={14} className="text-txt-muted" /> AI model (Reports & AI Insights)
+            </span>
+            <select
+              aria-label="Gemini model"
+              className="bg-ink-900 border border-ink-700 rounded-lg text-xs px-2 py-1.5 text-txt"
+              value={geminiModel}
+              onChange={(e) => {
+                const v = e.target.value as typeof geminiModel;
+                setGeminiModel(v);
+                setSelectedModel(v);
+                setProbeResult(null);
+              }}
+            >
+              {GEMINI_MODELS.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center justify-between gap-3 text-[13px]">
+            <span className="flex items-center gap-2">
+              <Sparkles size={14} className="text-txt-muted" /> Connection status
+            </span>
+            <div className="flex items-center gap-2">
+              {probeResult && (
+                <Badge tone={probeResult.ok ? 'positive' : 'warning'}>
+                  {probeResult.ok ? `Connected · ${probeResult.availableModels.length} models visible` : probeResult.kind}
+                </Badge>
+              )}
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={probeBusy}
+                onClick={() => {
+                  setProbeBusy(true);
+                  void (async () => {
+                    try {
+                      const key = await loadGeminiKey();
+                      if (!key) { setProbeResult({ ok: false, kind: 'no_key', message: 'No key stored.' }); return; }
+                      setProbeResult(await probeConnection(key, geminiModel));
+                    } catch {
+                      setProbeResult({ ok: false, kind: 'network', message: 'Probe failed to run.' });
+                    } finally {
+                      setProbeBusy(false);
+                    }
+                  })();
+                }}
+              >
+                {probeBusy ? 'Testing…' : 'Test connection'}
+              </Button>
+            </div>
+          </div>
+          {probeResult && !probeResult.ok && (
+            <p className="text-[11px] text-amber-400/90">{probeResult.message}</p>
           )}
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="secondary" onClick={() => setGeminiModalOpen(true)}>

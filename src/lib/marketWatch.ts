@@ -165,6 +165,8 @@ export function providerLabel(providerId: string): string {
 /* ─────────────────────────── Storage ─────────────────────────── */
 
 const HISTORY_KEY = 'vaultfolio.marketwatch.history.v1';
+/** In-memory mirror of the stored history; invalidated on every save. */
+let HISTORY_MEMO: PriceObservation[] | null = null;
 const SETTINGS_KEY = 'vaultfolio.marketwatch.settings.v1';
 
 /** Max observations to retain per metal (avoids unbounded storage growth) */
@@ -211,6 +213,8 @@ export function saveMarketWatchSettings(s: MarketWatchSettings, storage?: Storag
 }
 
 export function loadPriceHistory(storage?: StorageLike): PriceObservation[] {
+  // Memoized for synchronous valuation loops (explicit storage args bypass it).
+  if (!storage && HISTORY_MEMO) return HISTORY_MEMO;
   try {
     const s = getStorage(storage);
     const raw = s?.getItem(HISTORY_KEY);
@@ -218,7 +222,7 @@ export function loadPriceHistory(storage?: StorageLike): PriceObservation[] {
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return [];
     // Validate each record minimally
-    return parsed.filter(
+    const list = parsed.filter(
       (r): r is PriceObservation =>
         r &&
         typeof r === 'object' &&
@@ -228,6 +232,8 @@ export function loadPriceHistory(storage?: StorageLike): PriceObservation[] {
         typeof r.metal === 'string' &&
         typeof r.retrievedAt === 'string',
     );
+    if (!storage) HISTORY_MEMO = list;
+    return list;
   } catch {
     return [];
   }
@@ -250,6 +256,7 @@ export function savePriceHistory(observations: PriceObservation[], storage?: Sto
       capped.push(...sorted.slice(0, MAX_OBSERVATIONS_PER_METAL));
     }
     store.setItem(HISTORY_KEY, JSON.stringify(capped));
+    if (!storage) HISTORY_MEMO = capped;
   } catch {
     /* storage full */
   }

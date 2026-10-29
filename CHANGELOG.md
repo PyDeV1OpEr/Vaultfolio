@@ -4,6 +4,18 @@ All notable changes to Vaultfolio are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [SemVer](https://semver.org/spec/v2.0.0.html) — MAJOR.MINOR.PATCH, with PATCH reserved for fixes that don't change persisted data or user-visible flows.
 
+# Changelog
+
+All notable changes to Vaultfolio are documented here.
+
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [SemVer](https://semver.org/spec/v2.0.0.html) — MAJOR.MINOR.PATCH, with PATCH reserved for fixes that don't change persisted data or user-visible flows.
+
+## [1.0.6] — 2026-10-29
+
+### Added
+- **AI Insights** — a dedicated Gemini-powered analysis section, separate from both Reports and the existing local Insights analytics page. It reasons over (1) Market Watch's on-device provider observations and (2) portfolio aggregates computed locally by the valuation engine, and returns a structured, zod-validated analysis (market overview, per-metal direction with confidence, portfolio allocation/concentration commentary, risks, opportunities, tips, limitations). Direction wording is interpretation; confidence scales down when observations are thin. No prices, exchange rates, or balances are ever taken from the model; insufficient data is stated as insufficient; no guaranteed returns.
+- **Settings → Gemini AI extensions**: a controlled model selector (gemini-2.5-flash / -lite / pro), and a zero-quota **Test connection** probe using the keyless-cost `Models.list` endpoint which reports configured/connected/over-quota/invalid-key status.
+- Insights prompt and UI include the data basis: observation counts, providers, FX rate with source timestamp, active/valued asset counts.
 ## [1.0.5] — 2026-10-29
 
 ### Changed

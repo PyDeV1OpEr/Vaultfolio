@@ -1,6 +1,7 @@
 import { NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
+  Sparkles,
   BarChart3,
   CheckCircle2,
   FileText,
@@ -29,6 +30,7 @@ const PORTFOLIO_NAV = [
   { to: '/market-watch', label: 'Market Watch', icon: TrendingUp },
   { to: '/reports', label: 'Reports', icon: FileText },
   { to: '/insights', label: 'Insights', icon: BarChart3 },
+  { to: '/ai-insights', label: 'AI Insights', icon: Sparkles },
 ];
 
 const PREFERENCES_NAV = [
@@ -184,7 +186,7 @@ function SidebarContent({ mode, onNavClick }: { mode: string; onNavClick: () => 
           <div className="flex items-center gap-1.5">
             <span className="font-semibold text-sm tracking-tight text-txt">Vaultfolio</span>
             <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-ink-800 text-txt-dim border border-ink-700">
-              v1.0.4
+              v1.0.6
             </span>
           </div>
           <p className="text-2xs text-txt-dim mt-0.5 flex items-center gap-1">
