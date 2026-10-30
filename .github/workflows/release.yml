@@ -204,7 +204,12 @@ jobs:
               codesign --force --deep --sign - "$app"
               codesign --verify --deep --strict --verbose=2 "$app"
             fi
-            hdiutil create -volname Vaultfolio -srcfolder "$app" -ov -format UDZO "$dmg"
+            # Drag-and-drop layout: app plus Applications shortcut side by side.
+            stage="src-tauri/target/${target}/release/bundle/dmg/dmg-stage"
+            rm -rf "$stage" && mkdir -p "$stage"
+            cp -R "$app" "$stage/Vaultfolio.app"
+            ln -s /Applications "$stage/Applications"
+            hdiutil create -volname Vaultfolio -srcfolder "$stage" -ov -format UDZO "$dmg"
             hdiutil verify "$dmg"
           done
 
