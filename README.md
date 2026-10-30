@@ -6,7 +6,7 @@ Vaultfolio tracks physical assets—precious metals, jewelry and gemstones, watc
 
 ## Download the Latest Version
 
-**Truthful builds from current source.** Do not use v1.0.2 or v1.0.3: v1.0.2 has a stale frontend, and v1.0.3's macOS bundle has an invalid signature. v1.0.4 contains neither fix for the AI Market Reports section (it was built before that feature merged); v1.0.5 is the current source, rebuilt for all three platforms.
+**Truthful builds from current source.** Do not use v1.0.2, v1.0.3, or v1.0.4: v1.0.2 has a stale frontend, v1.0.3's macOS bundle has an invalid signature, and v1.0.4 was built before the AI Market Reports feature merged. **v1.0.6 is the current source**: it adds automatic market valuations for supported metal assets, automatic keyless USD→LKR conversion with timestamps, and the new AI Insights section, and was rebuilt for all three platforms from the tagged commit.
 
 | Platform | Download |
 | --- | --- |
