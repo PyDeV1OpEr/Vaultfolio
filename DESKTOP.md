@@ -71,14 +71,35 @@ node icons-src/render.mjs && npx tauri icon icons-src/app-icon.png --output src-
 ## Platform notes
 
 ### macOS
-- `npm run desktop:build:macos` produces an **unsigned** `.app` and `.dmg` by
+- `npm run desktop:build:macos` produces an **ad-hoc signed** `.app` and `.dmg` by
   default. Gatekeeping is not a problem for building, only for distribution.
-- To distribute to non-technical users, sign + notarize:
+- **Developer ID signing + notarization in CI** is wired into
+  `.github/workflows/release.yml` and activates when these five GitHub Actions
+  secrets are set (repository → Settings → Secrets and variables → Actions):
+
+  | Secret | Value |
+  | --- | --- |
+  | `APPLE_CERTIFICATE` | Base64 of a **Developer ID Application** certificate (.p12 export from Keychain Access; `base64 -i cert.p12 \| pbcopy`). The cert needs a *paid* Apple Developer Program membership. |
+  | `APPLE_CERTIFICATE_PASSWORD` | The password set when exporting the .p12. |
+  | `APPLE_ID` | Your Apple ID email (App Store Connect). |
+  | `APPLE_APP_SPECIFIC_PASSWORD` | App-specific password from [appleid.apple.com](https://appleid.apple.com) → Sign-In and Security → App-Specific Passwords. **This is not your Apple ID password.** |
+  | `APPLE_TEAM_ID` | 10-character team ID (App Store Connect → Membership, or the certificate CN). It must own the Developer ID certificate. |
+
+  All credentials live in GH-secrets only — never in the repo, bundle, or DMG.
+  The `security set-key-partition-list` step permits `codesign` to consume the
+  certificate from the imported CI keychain; nothing is printed or archived.
+
+- **Local (day-to-day) sign + notarize**, if you prefer not to go through CI:
   ```bash
   export APPLE_SIGNING_IDENTITY="Developer ID Application: YOUR NAME (TEAMID)"
-  export APPLE_ID="..." APPLE_PASSWORD="..." APPLE_TEAM_ID="..."   # notarytool
+  export APPLE_ID="..." APPLE_PASSWORD="..." APPLE_TEAM_ID="..."   # notarytool app-specific password
   npm run desktop:build:macos
   ```
+- CI flow after the secrets exist: cert import → Tauri build (hardened
+  runtime) → `codesign --verify --deep --strict` → DMG build → `xcrun
+  notarytool submit --wait` → `stapler staple` + `stapler validate`. A rejected
+  submission fails the job and prints Apple's log; nothing notarized is
+  claimed unless Apple accepted it.
 - Universal (Intel + Apple Silicon) binary: add
   `--target universal-apple-darwin` and install both Rust targets
   (`rustup target add aarch64-apple-darwin x86_64-apple-darwin`).

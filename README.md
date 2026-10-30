@@ -35,7 +35,7 @@ Each link points at the **latest** release; the same filenames appear on the [re
 
 1. Download the DMG matching your Mac’s architecture (Apple menu → About This Mac).
 2. Open the DMG and drag `Vaultfolio.app` to Applications.
-3. Builds are currently unsigned. If Gatekeeper blocks the first launch, Control-click the app, choose **Open**, then confirm.
+3. Builds are **ad-hoc signed** (notarized builds require Apple Developer ID credentials — see [DESKTOP.md](DESKTOP.md)). If Gatekeeper blocks the first launch, Control-click the app, choose **Open**, then confirm. No system security settings need to change.
 
 ### Windows
 

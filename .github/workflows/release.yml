@@ -13,6 +13,12 @@ name: Release desktop installers
 permissions:
   contents: read
 
+# Least privilege: jobs may publish to GitHub Releases and nothing else.
+# No third-party tokens; GITHUB_TOKEN is scoped per-run. macOS Developer ID
+# signing + notarization activate ONLY when the four APPLE_* secrets are
+# configured (see DESKTOP.md); otherwise the ad-hoc legacy path runs and the
+# release notes must not claim notarization.
+
 defaults:
   run:
     shell: bash
@@ -85,7 +91,10 @@ jobs:
             local vault, portfolio, or Market Watch.
 
           ### Install notes
-          - The macOS builds and the Windows build are currently **unsigned**:
+          - macOS builds are **Developer ID signed and notarized** when the
+            repository's APPLE_* secrets are configured; the release notes will
+            say so explicitly only on a build where Apple actually accepted the
+            notarization. Builds without those secrets are ad-hoc signed:
             - macOS first launch: right-click the app → **Open** (bypasses
               Gatekeeper for this app without changing system security).
             - Windows first launch: choose **More info → Run anyway** if
@@ -126,29 +135,133 @@ jobs:
           workspaces: |
             src-tauri -> target
       - run: npm ci
+
+      # ── Developer ID signing (conditional) ──────────────────────────────
+      # Requires two config secrets to activate:
+      #   APPLE_CERTIFICATE            base64-exported Developer ID Application .p12
+      #   APPLE_CERTIFICATE_PASSWORD   export password for that .p12
+      # Notarization additionally requires:
+      #   APPLE_ID                     Apple ID email used for App Store Connect
+      #   APPLE_APP_SPECIFIC_PASSWORD  app-specific password (appleid.apple.com)
+      #   APPLE_TEAM_ID                10-char team id that owns the certificate
+      # Missing identities keep the ad-hoc path and the release notes stay honest.
+      - name: Import Developer ID certificate (if provided)
+        id: signing
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${APPLE_CERTIFICATE:-}" ] || [ -z "${APPLE_CERTIFICATE_PASSWORD:-}" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::APPLE_CERTIFICATE / APPLE_CERTIFICATE_PASSWORD secrets are not set — building the ad-hoc (unsigned for distribution) variant. Gatekeeper will warn on first launch."
+            exit 0
+          fi
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+          echo "$APPLE_CERTIFICATE" | base64 --decode > /tmp/dev-cert.p12
+          KEYCHAIN_PW="vf-keychain-$(date +%s)"
+          security create-keychain -p "$KEYCHAIN_PW" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PW" build.keychain
+          security import /tmp/dev-cert.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          # Allow codesign (and its signing helpers) on the new keychain.
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PW" build.keychain > /dev/null
+          rm -f /tmp/dev-cert.p12
+          IDENTITY=$(security find-identity -v -p codesigning build.keychain | awk -F'"' '/Developer ID Application/{print $2; exit}')
+          if [ -z "$IDENTITY" ]; then
+            echo "::error::The imported .p12 contains no 'Developer ID Application' certificate. Export the right certificate and re-encode with base64."
+            security find-identity -v -p codesigning build.keychain
+            exit 1
+          fi
+          echo "identity=$IDENTITY" >> "$GITHUB_OUTPUT"
+          echo "keychain=build.keychain" >> "$GITHUB_OUTPUT"
+
       # `frontendDist` is embedded by Cargo. Clear only this app crate so a
       # restored Rust cache cannot retain an earlier JavaScript/CSS bundle.
       - name: Clear embedded frontend cache
         run: cargo clean -p vaultfolio
         working-directory: src-tauri
-      - name: Build Apple Silicon dmg
-        run: npx tauri build --target aarch64-apple-darwin --config src-tauri/tauri.macos.json
-      - name: Build Intel dmg
-        run: npx tauri build --target x86_64-apple-darwin --config src-tauri/tauri.macos.json
-      - name: Validate-sign apps and rebuild DMGs
-        # Tauri's default ad-hoc signature can be invalid after the bundle is
-        # assembled. Re-sign the finished app and then create the DMG from that
-        # verified bundle. This is not Developer ID signing or notarization, but
-        # it prevents macOS from reporting the app as damaged.
+
+      - name: Build arch ${{ matrix.target }} (signing as configured)
+        strategy:
+          fail-fast: true
+          matrix:
+            target: [aarch64-apple-darwin, x86_64-apple-darwin]
+        env:
+          APPLE_KEYCHAIN: ${{ steps.signing.outputs.enabled == 'true' && steps.signing.outputs.keychain || '' }}
+          APPLE_SIGNING_IDENTITY: ${{ steps.signing.outputs.enabled == 'true' && steps.signing.outputs.identity || '-' }}
+        run: npx tauri build --target ${{ matrix.target }} --config src-tauri/tauri.macos.json
+
+      - name: Validate and package DMGs
+        # With a Developer ID identity: keep Tauri's hardened-runtime signature
+        # (never levels it down with ad-hoc re-signing), verify it strictly.
+        # Without one: rebuild the ad-hoc signature after bundling so macOS does
+        # not report the app as damaged (fallback path only).
         run: |
+          set -euo pipefail
           for target in aarch64-apple-darwin x86_64-apple-darwin; do
             app="src-tauri/target/${target}/release/bundle/macos/Vaultfolio.app"
             dmg="src-tauri/target/${target}/release/bundle/dmg/Vaultfolio_${GITHUB_REF_NAME#v}_$( [ "$target" = aarch64-apple-darwin ] && echo aarch64 || echo x64 ).dmg"
-            codesign --force --deep --sign - "$app"
-            codesign --verify --deep --strict --verbose=2 "$app"
+            if [ "${{ steps.signing.outputs.enabled }}" = "true" ]; then
+              codesign --verify --deep --strict --verbose=2 "$app"
+              echo "Developer ID signature verified for target $target"
+            else
+              codesign --force --deep --sign - "$app"
+              codesign --verify --deep --strict --verbose=2 "$app"
+            fi
             hdiutil create -volname Vaultfolio -srcfolder "$app" -ov -format UDZO "$dmg"
             hdiutil verify "$dmg"
           done
+
+      # ── Notarization (conditional) ─────────────────────────────────────
+      # Submits BOTH finished DMGs to Apple via notarytool, waits for the
+      # result, staples the ticket, and validates. A rejection fails the job
+      # before anything is uploaded, and prints the notarization log.
+      - name: Notarize DMGs with notarytool (if credentials provided)
+        id: notary
+        if: steps.signing.outputs.enabled == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "${APPLE_ID:-}" ] || [ -z "${APPLE_APP_SPECIFIC_PASSWORD:-}" ] || [ -z "${APPLE_TEAM_ID:-}" ]; then
+            echo "::notice::Signing secrets present but APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID not set — skipping notarization. The DMGs will be Developer ID-signed but NOT notarized."
+            echo "notarized=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "notarized=true" >> "$GITHUB_OUTPUT"
+          # Store credentials once in the build keychain; the app-specific
+          # password never appears on a command line as a positional arg.
+          xcrun notarytool store-credentials VAULTFOLIO_NOTARY \
+            --apple-id "$APPLE_ID" \
+            --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --keychain build.keychain
+          for title in arm64 x64; do
+            dmg="src-tauri/target/*-apple-darwin/release/bundle/dmg/Vaultfolio_${GITHUB_REF_NAME#v}_${title}.dmg"
+            dmg=$(ls $dmg | head -1)
+            echo "Submitting $dmg to Apple notarization…"
+            if ! xcrun notarytool submit "$dmg" \
+                 --keychain-profile VAULTFOLIO_NOTARY \
+                 --keychain build.keychain \
+                 --wait \
+                 --output-format json \
+                 | tee /tmp/notary-"$title".json; then
+              submission_id=$(python3 -c "import json,sys;print(json.load(open('/tmp/notary-"$title".json')).get('id',''))" 2>/dev/null || true)
+              if [ -n "$submission_id" ]; then
+                echo "::error::Notarization rejected; fetching Apple's log for submission $submission_id:"
+                xcrun notarytool log "$submission_id" --keychain-profile VAULTFOLIO_NOTARY --keychain build.keychain || true
+              fi
+              exit 1
+            fi
+            echo "Stapling ticket onto $dmg…"
+            xcrun stapler staple "$dmg"
+            xcrun stapler validate "$dmg"
+          done
+          echo "::notice::Both DMGs notarized and stapled successfully."
+
       - name: Normalize artifact names
         run: |
           mkdir -p dist-desktop
