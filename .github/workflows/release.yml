@@ -6,19 +6,13 @@ on:
 
 name: Release desktop installers
 
-# Least privilege: jobs may publish to GitHub Releases and nothing else.
-# No third-party tokens; GITHUB_TOKEN is scoped per-run. Signing
-# credentials are optional secrets (see DESKTOP.md) — builds currently
-# produce unsigned installers.
 permissions:
   contents: read
 
 # Least privilege: jobs may publish to GitHub Releases and nothing else.
 # No third-party tokens; GITHUB_TOKEN is scoped per-run. macOS Developer ID
-# signing + notarization activate ONLY when the four APPLE_* secrets are
-# configured (see DESKTOP.md); otherwise the ad-hoc legacy path runs and the
-# release notes must not claim notarization.
-
+# signing + notarization activate ONLY when the five APPLE_* secrets are
+# configured (see DESKTOP.md); otherwise the ad-hoc legacy path runs and the# release notes must not claim notarization.
 defaults:
   run:
     shell: bash
@@ -182,15 +176,16 @@ jobs:
         run: cargo clean -p vaultfolio
         working-directory: src-tauri
 
-      - name: Build arch ${{ matrix.target }} (signing as configured)
-        strategy:
-          fail-fast: true
-          matrix:
-            target: [aarch64-apple-darwin, x86_64-apple-darwin]
+      - name: Build Apple Silicon and Intel installers (signing as configured)
+        # Job-level env cannot reference steps.* outputs, so the Tauri signing
+        # vars are set on this step only. APPLE_SIGNING_IDENTITY '-' = ad-hoc
+        # fallback path (no secrets configured).
         env:
           APPLE_KEYCHAIN: ${{ steps.signing.outputs.enabled == 'true' && steps.signing.outputs.keychain || '' }}
           APPLE_SIGNING_IDENTITY: ${{ steps.signing.outputs.enabled == 'true' && steps.signing.outputs.identity || '-' }}
-        run: npx tauri build --target ${{ matrix.target }} --config src-tauri/tauri.macos.json
+        run: |
+          npx tauri build --target aarch64-apple-darwin --config src-tauri/tauri.macos.json
+          npx tauri build --target x86_64-apple-darwin --config src-tauri/tauri.macos.json
 
       - name: Validate and package DMGs
         # With a Developer ID identity: keep Tauri's hardened-runtime signature
