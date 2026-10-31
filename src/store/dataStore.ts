@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { AppSettings, Asset, MarketSnapshot, ManualPriceOverride, ValuationRecord, ValuationConfidence } from '../lib/types';
 import { loadMarketData } from '../lib/market';
+import { syncObservationsIfDue } from '../lib/marketWatch';
 import { EncryptedLocalAdapter, SupabaseAdapter, DataAdapter } from '../lib/storage';
 import { getSupabase, supabaseConfigured } from '../lib/supabase';
 import { ProfileStore } from '../lib/profile';
@@ -562,7 +563,13 @@ export const useData = create<DataState>((set, get) => {
     async refreshMarket() {
       set({ marketLoading: true });
       try {
-        const m = await loadMarketData(get().overrides);
+        // Refresh both sources in parallel so the state update that triggers
+        // re-render sees fresh metal observations too: existing gold/silver/
+        // platinum/palladium assets then recompute against current market.
+        const [m, ] = await Promise.all([
+          loadMarketData(get().overrides),
+          syncObservationsIfDue().catch(() => ({ fetched: false, observationsAdded: 0 })),
+        ]);
         set({ market: m, marketLoading: false });
       } catch {
         set({ marketLoading: false });
