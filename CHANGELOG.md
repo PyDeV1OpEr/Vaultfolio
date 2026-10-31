@@ -10,6 +10,15 @@ All notable changes to Vaultfolio are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [SemVer](https://semver.org/spec/v2.0.0.html) — MAJOR.MINOR.PATCH, with PATCH reserved for fixes that don't change persisted data or user-visible flows.
 
+## [1.0.7] — 2026-10-31
+
+### Fixed
+- **Existing metal assets now update valuations on refresh** — the Market Watch auto-fetch scheduler previously only ran while the Market Watch page was open, so gold, silver, platinum, and palladium assets kept valuing against stale stored observations until the user visited that page. A store-level `syncObservationsIfDue()` (same rate-limit/fetch-schedule/dedupe contract) now runs as part of every market refresh (app boot and every Refresh button), so existing assets track current market prices without visiting Market Watch.
+- 4 regression tests added (off-schedule runs make zero network calls; repeat due-runs dedupe to zero added observations; auto-fetch disabled fetches nothing); total suite 123/123.
+
+### Verified with live data (2026-10-31)
+- Keyless gold-api.com: XAU 3876.40 / XAG 49.254 / XPT 1439.00 / XPD 1001.00 / Copper (HG) 6.5374 USD, all "seconds old"; GoldAPI.io (optional primary, locally configured key): XAU 3875.65 USD/oz; open.er-api.com FX: LKR 332.294 per USD (updated 2026-10-31). End-to-end math: 10 g 24K = LKR 414,135.53; 10 g 22K = LKR 379,624.24; 10 g .999 silver = LKR 5,262.06.
+
 ## [1.0.6] — 2026-10-29
 
 ### Added
