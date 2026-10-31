@@ -24,6 +24,7 @@ import {
   msUntilNextFetch,
   filterByRange,
   usdPerOztToLkrPerGram,
+  syncObservationsIfDue,
   loadPriceHistory,
   savePriceHistory,
   loadMarketWatchSettings,
@@ -454,5 +455,84 @@ describe('Currency conversion accuracy', () => {
   it('LKR per gram at rate 300: 129.146 * 300 = 38743.8', () => {
     const lkrPerGram = usdPerOztToLkrPerGram(4016.895, 300);
     expect(lkrPerGram).toBeCloseTo(38743.8, 0);
+  });
+});
+
+/* ───────────── 12. Background observation sync (store-level) ───────────── */
+
+describe('syncObservationsIfDue', () => {
+  let storage: FakeStorage;
+  let fetchCalls: string[];
+  let realFetch: typeof fetch;
+
+  beforeEach(() => {
+    storage = new FakeStorage();
+    fetchCalls = [];
+    realFetch = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      fetchCalls.push(String(input));
+      const url = String(input);
+      // Realistic per-symbol prices so the real bounds validation accepts them.
+      // Both provider shapes: gold-api.com `<base>/price/<SYM>` and
+      // GoldAPI.io `<base>/api/<SYM>/USD` (the primary runs when a local
+      // VITE_GOLDAPI_KEY is configured — see readCredentials). The test
+      // accepts either; a fixed provider timestamp keeps dedupe deterministic.
+      const symbol = url.includes('goldapi.io')
+        ? url.split('/').slice(-2, -1).pop() ?? ''// section after /api/<SYM>/
+        : url.split('/').pop() ?? '';
+      const bySymbol: Record<string, number> = { XAU: 4000, XAG: 25, XPT: 950, XPD: 1100, HG: 5 };
+      const price = bySymbol[symbol] ?? 4000;
+      const body = url.includes('goldapi.io')
+        ? { price, currency: 'USD', timestamp: 1769932800 }
+        : { price, name: symbol, currency: 'USD', updatedAt: '2026-10-31T20:00:00Z' };
+      return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
+    }) as typeof fetch;
+  });
+
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+  });
+
+  it('fetches and persists observations when the schedule is due', async () => {
+    const res = await syncObservationsIfDue(storage);
+    expect(res.fetched).toBe(true);
+    // 5 metals, one observation each (deduped by unique provider timestamps)
+    expect(res.observationsAdded).toBe(5);
+    const saved = loadPriceHistory(storage);
+    expect(saved.length).toBe(5);
+    const settings = loadMarketWatchSettings(storage);
+    expect(settings.lastFetchAt).not.toBeNull();
+  });
+
+  it('does not fetch until the configured interval has elapsed', async () => {
+    const V = await import('./marketWatch');
+    void V;
+    await syncObservationsIfDue(storage);
+    const callsAfterFirst = fetchCalls.length;
+    const res = await syncObservationsIfDue(storage);
+    expect(res.fetched).toBe(false);
+    expect(fetchCalls.length).toBe(callsAfterFirst);
+  });
+
+  it('respects autoFetchEnabled = false (no network at all)', async () => {
+    const { saveMarketWatchSettings } = await import('./marketWatch');
+    const settings = { ...loadMarketWatchSettings(storage), autoFetchEnabled: false };
+    saveMarketWatchSettings(settings, storage);
+    const res = await syncObservationsIfDue(storage);
+    expect(res.fetched).toBe(false);
+    expect(fetchCalls).toHaveLength(0);
+  });
+
+  it('deduplicates a repeat observation so the count does not grow', async () => {
+    await syncObservationsIfDue(storage);
+    // Reset lastFetchAt so a second run is "due" and returns identical data
+    const settings = { ...loadMarketWatchSettings(storage), lastFetchAt: null as string | null };
+    const { saveMarketWatchSettings } = await import('./marketWatch');
+    saveMarketWatchSettings(settings, storage);
+    const before = loadPriceHistory(storage).length;
+    const res = await syncObservationsIfDue(storage);
+    expect(res.fetched).toBe(true);
+    expect(res.observationsAdded).toBe(0);
+    expect(loadPriceHistory(storage).length).toBe(before);
   });
 });

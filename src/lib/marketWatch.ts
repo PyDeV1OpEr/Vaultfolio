@@ -694,6 +694,47 @@ export function estimateMonthlyRequests(
   };
 }
 
+/* ─────────────────────────── Background observation sync ─────────────────────────── */
+
+const ALL_METALS: MetalCode[] = ['XAU', 'XAG', 'XPT', 'XPD', 'XCU'];
+
+export interface ObservationSyncResult {
+  fetched: boolean;
+  observationsAdded: number;
+}
+
+/**
+ * Refresh the on-device observation store when the auto-fetch schedule is
+ * due — from a store-level context (app boot, Overview/Market refresh)
+ * rather than only while the Market Watch page is open. This is what lets
+ * existing gold/silver/platinum/palladium valuations track current market
+ * prices after any refresh, without the user visiting Market Watch.
+ *
+ * Honesty/rate-limit contract preserved:
+ *  - Respects autoFetchEnabled and the configured fetches/day interval via
+ *    msUntilNextFetch — never polls tighter than the user's schedule.
+ *  - Persists lastFetchAt, so the Market Watch page's own scheduler skips
+ *    after a background run (single source of truth for the schedule).
+ *  - Deduplication via mergeObservations means an occasional race with the
+ *    page scheduler cannot produce duplicate observations.
+ *  - A partially failed run keeps whatever observations did land; per-metal
+ *    errors are reported by the page, not invented here.
+ */
+export async function syncObservationsIfDue(
+  storage?: StorageLike,
+): Promise<ObservationSyncResult> {
+  const settings = loadMarketWatchSettings(storage);
+  if (!settings.autoFetchEnabled) return { fetched: false, observationsAdded: 0 };
+  if (msUntilNextFetch(settings) > 0) return { fetched: false, observationsAdded: 0 };
+
+  const result = await fetchLatestPrices(ALL_METALS);
+  const existing = loadPriceHistory(storage);
+  const merged = mergeObservations(existing, result.observations);
+  if (merged.length > existing.length) savePriceHistory(merged, storage);
+  saveMarketWatchSettings({ ...settings, lastFetchAt: result.fetchedAt }, storage);
+  return { fetched: true, observationsAdded: merged.length - existing.length };
+}
+
 /* ─────────────────────────── Freshness helpers ─────────────────────────── */
 
 export type FreshnessStatus = 'live' | 'recent' | 'stale' | 'offline';
