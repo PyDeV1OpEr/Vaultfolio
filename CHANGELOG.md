@@ -4,12 +4,17 @@ All notable changes to Vaultfolio are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [SemVer](https://semver.org/spec/v2.0.0.html) — MAJOR.MINOR.PATCH, with PATCH reserved for fixes that don't change persisted data or user-visible flows.
 
-# Changelog
+## [1.0.8] — 2026-11-01
 
-All notable changes to Vaultfolio are documented here.
+### Added
+- **Insights performance section** — a prominent, per-period performance panel (7 days / 30 days / 90 days / 1 year / All time) computed strictly from the append-only `ValuationRecord` history: current vs baseline recorded value, absolute and percentage change, directional indicators, the compared/excluded holding counts, and the exact baseline date. Bounded windows compare against the last record at/before the cutoff; "All time" compares against each asset's earliest record. No data is synthesized, interpolated, or backfilled — when a period has no recorded baseline the panel says so and explains how to build history.
+- **Biggest movers section** — the largest recorded valuation changes per asset with percentage and absolute change, the previous→latest dates, and an explicit source label distinguishing "market tracking (automated revaluation)" from "owner-adjusted estimate" so market-driven moves are never confused with manual re-valuations or realized profit.
+- **Precious-metal market moves section** — per-metal movement (gold, silver, platinum, palladium, copper) computed from the stored Market-Watch provider observations, with the observation count and the observed window shown; sections render honest empty states only when observations exist.
+- **Valuation freshness panel** — active assets flagged as fresh (≤ 7 days), aged (≤ 30 days) or stale (> 30 days), stale-first with a one-line "never re-valued" state for entries that have never been re-valued.
+- **Local insight cards** — deterministic summary cards derived from the same computed data (period delta, coverage gaps, stale count, top mover, top metal move), each with a headline, plain-language body and directional tone. They are computed entirely on-device; the optional Gemini AI Insights remains a separate, clearly-labeled section.
 
-The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [SemVer](https://semver.org/spec/v2.0.0.html) — MAJOR.MINOR.PATCH, with PATCH reserved for fixes that don't change persisted data or user-visible flows.
-
+### Tests
+- New `insightsExtras` module covered by 12 unit tests (period windows, cutoff semantics, exclusion accounting, mover source labels, metal-move fraction normalization, staleness buckets, insight-card contents). Full suite: 135/135 passing; `tsc --noEmit` clean.
 ## [1.0.7] — 2026-10-31
 
 ### Fixed

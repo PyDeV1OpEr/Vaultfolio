@@ -1,16 +1,23 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   AlertTriangle,
+  ArrowDownRight,
+  ArrowUpRight,
   Award,
   BarChart3,
   CheckCircle2,
   CircleHelp,
+  Clock,
+  Info,
   PieChart as PieIcon,
   Scale,
   Sparkles,
+  TrendingDown,
   TrendingUp,
   Vault,
 } from 'lucide-react';
+import { PERIOD_OPTIONS, computePortfolioPerformance, countStaleValuations, localInsightCards, metalMoves, portfolioMovers, valuationFreshness, type LocalInsightCard, type PeriodKey } from '../lib/insightsExtras';
+import { loadPriceHistory } from '../lib/marketWatch';
 import { useData } from '../store/dataStore';
 import {
   allocationByCategory,
@@ -38,9 +45,38 @@ export function Insights() {
   const allocation = useMemo(() => allocationByCategory(assets, market), [assets, market]);
   const timeline = useMemo(() => portfolioTimeline(assets, records), [assets, records]);
 
+  const [period, setPeriod] = useState<PeriodKey>('30d');
+
   const fm = (v: number | null) => (v === null ? '—' : formatMoney(v, settings.displayCurrency, usd));
   const pct = (v: number) => formatPercent(v);
   const num1 = (v: number) => formatNumber(v, 'en-US', 1);
+  const fd = (iso: string | null) =>
+    iso === null ? '—' : new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+  // Derived premium-analytics data — all computed from real recorded history:
+  const perf = useMemo(() => computePortfolioPerformance(assets, records, period), [assets, records, period]);
+  const movers = useMemo(() => portfolioMovers(assets, records), [assets, records]);
+  const priceHistory = useMemo(() => loadPriceHistory(), []);
+  const moves = useMemo(() => metalMoves(priceHistory), [priceHistory]);
+  const staleAssets = useMemo(() => valuationFreshness(assets), [assets]);
+  const staleCount = useMemo(() => countStaleValuations(assets), [assets]);
+  const localCards = useMemo(
+    () =>
+      localInsightCards({
+        perf: computePortfolioPerformance(assets, records, '30d'),
+        movers,
+        totals: { totalValuedLkr: statsFor(assets, market).totalValueLkr, valuedCount: stats.valuedCount, activeCount: stats.activeCount, unvaluedCount: stats.unvaluedCount },
+        staleCount,
+        metalMoves: moves,
+      }),
+    [assets, records, market, moves, movers, staleCount, stats.valuedCount, stats.activeCount, stats.unvaluedCount],
+  );
+
+  const arrowFor = (v: number | null) => (v === null ? null : v > 0 ? <ArrowUpRight size={14} className="text-emerald-400" /> : v < 0 ? <ArrowDownRight size={14} className="text-rose-400" /> : null);
+  const signedMoney = (v: number) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${fm(Math.abs(v))}`;
+
+  const localIcon = (i: LocalInsightCard['icon']) =>
+    i === 'trend-up' ? <TrendingUp size={16} /> : i === 'trend-down' ? <TrendingDown size={16} /> : i === 'clock' ? <Clock size={16} /> : i === 'alert' ? <AlertTriangle size={16} /> : <Info size={16} />;
 
   if (assets.length === 0) {
     return (
@@ -158,6 +194,91 @@ export function Insights() {
           </p>
         </Card>
       </div>
+
+      {/* Portfolio performance over selectable period */}
+      <Card>
+        <CardHeader
+          title="Portfolio Performance"
+          subtitle="Change in recorded valuations across the selected window — never fabricated history"
+          action={
+            <div className="flex gap-1">
+              {PERIOD_OPTIONS.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => setPeriod(p.id)}
+                  className={`px-2.5 py-1 rounded-md border text-2xs font-medium transition-colors ${
+                    period === p.id
+                      ? 'border-accent/50 bg-accent/15 text-accent'
+                      : 'border-ink-800 text-txt-muted hover:border-ink-700 hover:text-txt'
+                  }`}
+                >
+                  {p.shortLabel}
+                </button>
+              ))}
+            </div>
+          }
+        />
+        <div className="px-5 pb-5">
+          {perf.status === 'ok' && perf.deltaPct !== null ? (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <p className="text-2xs text-txt-dim mb-1">Now ({fd(perf.currentAt)})</p>
+                  <p className="text-lg font-semibold tnum text-txt leading-tight">{fm(perf.currentValue)}</p>
+                </div>
+                <div>
+                  <p className="text-2xs text-txt-dim mb-1">Baseline ({fd(perf.baselineAt)})</p>
+                  <p className="text-lg font-semibold tnum text-txt-muted leading-tight">{fm(perf.baselineValue)}</p>
+                </div>
+                <div>
+                  <p className="text-2xs text-txt-dim mb-1">Change across window</p>
+                  <p className={`text-lg font-semibold tnum leading-tight flex items-center gap-1.5 ${
+                    perf.deltaPct > 0 ? 'text-emerald-400' : perf.deltaPct < 0 ? 'text-rose-400' : 'text-txt'
+                  }`}
+                  >
+                    {arrowFor(perf.deltaPct)} {signedMoney(perf.deltaLkr ?? 0)}
+                    <span className="text-xs font-medium">({pct(perf.deltaPct)})</span>
+                  </p>
+                </div>
+              </div>
+              <p className="text-2xs text-txt-dim mt-3 leading-relaxed">{perf.note}</p>
+            </>
+          ) : (
+            <div className="flex items-start gap-3 py-5 px-2 text-txt-muted">
+              <CircleHelp size={18} className="text-txt-dim shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-semibold text-txt">Not enough history for this window yet.</p>
+                <p className="text-2xs text-txt-dim mt-1 leading-relaxed">{perf.note}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {/* Local insight cards */}
+      {localCards.length > 0 && (
+        <div className="grid sm:grid-cols-2 gap-3.5">
+          {localCards.map((c) => (
+            <Card key={c.id} className={`p-4 border-l-2 ${
+              c.tone === 'positive' ? 'border-l-emerald-500/70' : c.tone === 'negative' ? 'border-l-rose-500/70' : c.tone === 'accent' ? 'border-l-accent/70' : 'border-l-ink-700'
+            }`}
+            >
+              <div className="flex items-start gap-3">
+                <span className={`shrink-0 mt-0.5 ${
+                  c.tone === 'positive' ? 'text-emerald-400' : c.tone === 'negative' ? 'text-rose-400' : c.tone === 'accent' ? 'text-accent' : 'text-txt-dim'
+                }`}
+                >
+                  {localIcon(c.icon)}
+                </span>
+                <div>
+                  <p className="text-xs font-semibold text-txt">{c.title}</p>
+                  <p className="text-2xs text-txt-muted mt-1 leading-relaxed">{c.body}</p>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* Row 1: Category Bar Chart & Allocation Donut */}
       <div className="grid lg:grid-cols-2 gap-4">
@@ -322,8 +443,84 @@ export function Insights() {
         </div>
       </Card>
 
-      {/* Concentration & Realizability Summary */}
+      {/* Biggest movers & metal market moves */}
       <div className="grid lg:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader
+            title="Biggest Movers"
+            subtitle="Largest recorded valuation changes, labelled by source"
+          />
+          <div className="px-5 pb-5 space-y-2.5">
+            {movers.length === 0 ? (
+              <div className="flex items-start gap-3 py-5 text-txt-muted">
+                <CircleHelp size={18} className="text-txt-dim shrink-0 mt-0.5" />
+                <p className="text-2xs leading-relaxed">
+                  Movers appear once an asset has two recorded valuations to compare (use “Update valuation”).
+                </p>
+              </div>
+            ) : (
+              movers.map((m) => (
+                <div key={m.id} className="flex items-center gap-3 py-1">
+                  {arrowFor(m.pct)}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-txt truncate">
+                      {m.name} <span className="text-2xs text-txt-dim font-normal">· {m.categoryLabel}</span>
+                    </p>
+                    <p className="text-2xs text-txt-dim">
+                      {m.changeLabel} · {fd(m.prevAt)} → {fd(m.lastAt)}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className={`text-xs font-semibold tnum ${m.absLkr > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {m.pct !== null ? `${m.pct > 0 ? '+' : ''}${(m.pct * 100).toFixed(1)}%` : '—'}
+                    </p>
+                    <p className={`text-2xs tnum ${m.absLkr > 0 ? 'text-emerald-400/80' : 'text-rose-400/80'}`}>
+                      {signedMoney(m.absLkr)}
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </Card>
+
+        <Card>
+          <CardHeader
+            title="Precious-Metal Market Moves"
+            subtitle="Change across your stored Market-Watch observations"
+          />
+          <div className="px-5 pb-5 space-y-2.5">
+            {moves.length === 0 ? (
+              <div className="flex items-start gap-3 py-5 text-txt-muted">
+                <CircleHelp size={18} className="text-txt-dim shrink-0 mt-0.5" />
+                <p className="text-2xs leading-relaxed">
+                  Sync Market-Watch once, then again later — two observations per metal are needed to compute a real market move.
+                </p>
+              </div>
+            ) : (
+              moves.map((mv) => (
+                <div key={mv.code} className="flex items-center gap-3 py-1">
+                  {arrowFor(mv.pct)}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-txt truncate">
+                      {mv.label} <span className="text-2xs text-txt-dim font-normal">· per {mv.unit}</span>
+                    </p>
+                    <p className="text-2xs text-txt-dim">
+                      {mv.observationCount} verified observation{mv.observationCount === 1 ? '' : 's'} · {fd(mv.startIso)} → {fd(mv.endIso)}
+                    </p>
+                  </div>
+                  <p className={`text-xs font-semibold tnum shrink-0 ${mv.pct! > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {mv.pct! > 0 ? '+' : ''}{(mv.pct! * 100).toFixed(1)}%
+                  </p>
+                </div>
+              ))
+            )}
+          </div>
+        </Card>
+      </div>
+
+      {/* Concentration & Realizability Summary */}
+      <div className="grid lg:grid-cols-3 gap-4">
         {/* Concentration Analysis */}
         <Card>
           <CardHeader
@@ -374,6 +571,40 @@ export function Insights() {
               Physical assets (especially jewelry, watches, vehicles, and real estate) often liquidate below
               retail value. Recording conservative dealer resale estimates keeps expectations grounded.
             </p>
+          </div>
+        </Card>
+
+        {/* Valuation freshness */}
+        <Card>
+          <CardHeader
+            title="Valuation Freshness"
+            subtitle="Stale estimates first — analytics stay only as good as their inputs"
+          />
+          <div className="px-5 pb-5 space-y-2">
+            {staleAssets.every((s) => s.bucket === 'fresh') && staleAssets.length > 0 ? (
+              <div className="flex items-center gap-2 text-xs text-emerald-400 py-3">
+                <CheckCircle2 size={15} /> All active assets were valued within the last 7 days.
+              </div>
+            ) : (
+              staleAssets.map((s) => (
+                <div key={s.id} className="flex items-center gap-2.5 py-0.5">
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                      s.bucket === 'stale' ? 'bg-rose-400' : s.bucket === 'aged' ? 'bg-amber-400' : s.bucket === 'fresh' ? 'bg-emerald-400' : 'bg-ink-600'
+                    }`}
+                  />
+                  <span className="text-xs text-txt truncate flex-1">{s.name}</span>
+                  <span className="text-2xs text-txt-dim tnum shrink-0">
+                    {s.daysAgo === null ? 'never re-valued' : `${s.daysAgo}d ago`}
+                  </span>
+                </div>
+              ))
+            )}
+            {staleCount > 0 && (
+              <p className="text-2xs text-amber-300/90 pt-1.5 border-t border-ink-800">
+                {staleCount} asset{staleCount === 1 ? '' : 's'} were last valued more than 30 days ago.
+              </p>
+            )}
           </div>
         </Card>
       </div>
