@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { aeadDecrypt, aeadEncrypt, toHex, fromHex, deriveKek, DEFAULT_KDF, type KdfParams } from './crypto';
 import { randomBytes } from '@noble/hashes/utils.js';
-import type { Asset, ValuationRecord } from './types';
+import type { Asset, DocumentRecord, ValuationRecord } from './types';
 
 /**
  * Backup/restore: a versioned, self-describing JSON manifest of the whole
@@ -17,6 +17,13 @@ export const BACKUP_FORMAT = 'vaultfolio-backup';
 export const BACKUP_VERSION = 1 as const;
 const AAD_BACKUP = 'vf-backup-v1';
 export const APP_VERSION = '1.0.0';
+
+export interface BackupBundle {
+  assets: Asset[];
+  records: ValuationRecord[];
+  /** Document METADATA; when `dataB64` is present the binary travelled too. */
+  documents?: DocumentRecord[];
+}
 
 export interface BackupFile {
   format: typeof BACKUP_FORMAT;
@@ -63,7 +70,6 @@ const assetValidator = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
 });
-
 const recordValidator = z.object({
   id: z.string().min(1),
   assetId: z.string().min(1),
@@ -75,6 +81,27 @@ const recordValidator = z.object({
   note: z.string().nullable(),
   recordedAt: z.string(),
 });
+
+/** Document metadata; `dataB64` is an optional inlined blob (for portability). */
+const documentValidator = z.object({
+  id: z.string().min(1),
+  userId: z.string(),
+  name: z.string().min(1),
+  category: z.string().min(1),
+  assetId: z.string().nullable(),
+  fileName: z.string(),
+  mimeType: z.string(),
+  sizeBytes: z.number().int().nonnegative(),
+  addedAt: z.string(),
+  issuedAt: z.string().nullable(),
+  expiresAt: z.string().nullable(),
+  description: z.string().nullable(),
+  dataB64: z.string().optional(),
+});
+
+export function parseDocPayload(input: unknown): DocumentRecord {
+  return documentValidator.parse(input) as DocumentRecord;
+}
 
 const manifestValidator = z.object({
   format: z.literal(BACKUP_FORMAT),
@@ -97,10 +124,12 @@ const manifestValidator = z.object({
 /* ---------------------- build ---------------------- */
 
 export function buildBackup(
-  bundle: { assets: Asset[]; records: ValuationRecord[] },
+  bundle: { assets: Asset[]; records: ValuationRecord[]; documents?: DocumentRecord[] },
   opts: { passphrase?: string } = {},
 ): string {
-  const plaintext = JSON.stringify({ assets: bundle.assets, records: bundle.records });
+  const plaintext = JSON.stringify(
+    bundle.documents?.length ? { assets: bundle.assets, records: bundle.records, documents: bundle.documents } : bundle,
+  );
   const salt = toHex(randomBytes(16));
   const file: BackupFile = {
     format: BACKUP_FORMAT,
@@ -121,7 +150,7 @@ export function buildBackup(
 export function parseBackup(
   text: string,
   opts: { passphrase?: string } = {},
-): { assets: Asset[]; records: ValuationRecord[] } {
+): { assets: Asset[]; records: ValuationRecord[]; documents?: DocumentRecord[] } {
   let manifest: BackupFile;
   try {
     manifest = manifestValidator.parse(JSON.parse(text)) as BackupFile;
@@ -129,7 +158,7 @@ export function parseBackup(
     throw new Error(`Not a valid Vaultfolio backup file. ${(err as Error).message}`);
   }
 
-  let payload: { assets: Asset[]; records: ValuationRecord[] };
+  let payload: { assets: Asset[]; records: ValuationRecord[]; documents?: unknown };
   if (manifest.encryption === 'none') {
     payload = JSON.parse(manifest.data);
   } else {
@@ -140,7 +169,7 @@ export function parseBackup(
   }
 
   const doc = z
-    .object({ assets: z.array(assetValidator), records: z.array(recordValidator) })
+    .object({ assets: z.array(assetValidator), records: z.array(recordValidator), documents: z.array(documentValidator).optional() })
     .parse(payload);
-  return doc as unknown as { assets: Asset[]; records: ValuationRecord[] };
+  return doc as unknown as { assets: Asset[]; records: ValuationRecord[]; documents?: DocumentRecord[] };
 }

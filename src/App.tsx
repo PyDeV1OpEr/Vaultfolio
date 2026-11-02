@@ -10,6 +10,7 @@ import { MarketWatchPage } from './pages/MarketWatch';
 import { Insights } from './pages/Insights';
 import { AiInsights } from './pages/AiInsights';
 import { ReportsScreen } from './pages/Reports';
+import { Documents } from './pages/Documents';
 import { Settings } from './pages/Settings';
 import { AuthScreen } from './pages/Auth';
 import { OnboardingScreen } from './pages/Onboarding';
@@ -68,6 +69,7 @@ export default function App() {
         <Route path="/insights" element={<Insights />} />
         <Route path="/ai-insights" element={<AiInsights />} />
         <Route path="/reports" element={<ReportsScreen />} />
+        <Route path="/documents" element={<Documents />} />
         <Route path="/settings" element={<Settings />} />
         <Route
           path="*"

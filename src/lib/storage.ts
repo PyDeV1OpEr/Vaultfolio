@@ -1,4 +1,4 @@
-import type { Asset, ValuationRecord } from './types';
+import type { Asset, DocumentRecord, ValuationRecord } from './types';
 import { aeadDecrypt, aeadEncrypt } from './crypto';
 
 /**
@@ -11,6 +11,8 @@ import { aeadDecrypt, aeadEncrypt } from './crypto';
 export interface DataBundle {
   assets: Asset[];
   records: ValuationRecord[];
+  /** Document metadata (binaries live in the separate blob store). */
+  documents?: DocumentRecord[];
 }
 
 export interface DataAdapter {
@@ -20,6 +22,9 @@ export interface DataAdapter {
   addAsset(asset: Asset, record?: ValuationRecord): Promise<void>;
   updateAsset(asset: Asset, record?: ValuationRecord): Promise<void>;
   deleteAsset(assetId: string): Promise<void>;
+  /** Optional document-metadata persistence (EncryptedLocalAdapter only). */
+  upsertDocument?(record: DocumentRecord): Promise<void>;
+  removeDocumentRecord?(docId: string): Promise<void>;
 }
 
 /* ---------------- Encrypted local (offline-first) adapter ---------------- */
@@ -31,6 +36,8 @@ const LEGACY_LOCAL_KEY = 'vaultfolio.local.v1'; // pre-encryption local data (pl
 interface LocalDoc {
   assets: Asset[];
   records: ValuationRecord[];
+  /** Document metadata only; binaries live in the IndexedDB blob store. */
+  documents?: DocumentRecord[];
 }
 
 /**
@@ -56,7 +63,7 @@ export class EncryptedLocalAdapter implements DataAdapter {
     if (raw) {
       const doc = JSON.parse(raw) as import('./profile').EncryptedDoc;
       const plain = decryptDoc(this.dek(), doc);
-      return { assets: plain.assets, records: plain.records };
+      return { assets: plain.assets, records: plain.records, documents: plain.documents ?? [] };
     }
     // Legacy migration: import pre-encryption data (real user records only —
     // seeding demo data here is a development-only action elsewhere).
@@ -107,6 +114,24 @@ export class EncryptedLocalAdapter implements DataAdapter {
     const doc = this.read();
     doc.assets = doc.assets.filter((x) => x.id !== assetId);
     doc.records = doc.records.filter((r) => r.assetId !== assetId);
+    // Deleting an asset UNLINKS its documents; the documents survive as general records.
+    if (doc.documents?.some((d) => d.assetId === assetId)) {
+      doc.documents = doc.documents.map((d) => (d.assetId === assetId ? { ...d, assetId: null } : d));
+    }
+    this.persist(doc);
+  }
+
+  /* ---- Documents (metadata; binaries live in documents.ts blob store) ---- */
+
+  async upsertDocument(record: DocumentRecord) {
+    const doc = this.read();
+    doc.documents = [record, ...(doc.documents ?? []).filter((d) => d.id !== record.id)];
+    this.persist(doc);
+  }
+
+  async removeDocumentRecord(docId: string) {
+    const doc = this.read();
+    doc.documents = (doc.documents ?? []).filter((d) => d.id !== docId);
     this.persist(doc);
   }
 
@@ -130,7 +155,7 @@ export class EncryptedLocalAdapter implements DataAdapter {
     const hasExisting = doc.assets.length > 0 || doc.records.length > 0;
     const nextAssets = hasExisting ? [...seed.assets, ...doc.assets] : seed.assets;
     const nextRecords = hasExisting ? [...seed.records, ...doc.records] : seed.records;
-    this.persist({ assets: nextAssets, records: nextRecords });
+    this.persist({ assets: nextAssets, records: nextRecords, documents: doc.documents });
     return { assets: nextAssets, records: nextRecords } as DataBundle;
   }
 }

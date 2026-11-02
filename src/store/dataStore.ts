@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import type { AppSettings, Asset, MarketSnapshot, ManualPriceOverride, ValuationRecord, ValuationConfidence } from '../lib/types';
+import { z } from 'zod';
+import type { AppSettings, Asset, MarketSnapshot, ManualPriceOverride, DocumentRecord, ValuationRecord, ValuationConfidence } from '../lib/types';
 import { loadMarketData } from '../lib/market';
 import { syncObservationsIfDue } from '../lib/marketWatch';
 import { EncryptedLocalAdapter, SupabaseAdapter, DataAdapter } from '../lib/storage';
@@ -7,6 +8,7 @@ import { getSupabase, supabaseConfigured } from '../lib/supabase';
 import { ProfileStore } from '../lib/profile';
 import { fromHex } from '../lib/crypto';
 import { buildBackup, parseBackup } from '../lib/backup';
+import { deleteDocBlob, getDocBlob, putDocBlob, persistDocument, mergeDocumentPatch, type NewDocumentRecord } from '../lib/documents';
 import {
   hasStoredCredential,
   loadWithPassphrase,
@@ -86,6 +88,8 @@ interface DataState {
   mode: AppMode;
   assets: Asset[];
   records: ValuationRecord[];
+  /** Documents-centre metadata (binaries live in the local blob store). */
+  documents: DocumentRecord[];
   settings: AppSettings;
   market: MarketSnapshot | null;
   overrides: Partial<Record<ManualPriceOverride['kind'], number>>;
@@ -125,6 +129,11 @@ interface DataState {
   addAsset: (a: Omit<Asset, 'id' | 'userId' | 'createdAt' | 'updatedAt'>, opts?: { valuationRecord?: boolean; valuationNote?: string | null }) => Promise<string | null>;
   updateAsset: (id: string, patch: Partial<Asset>, opts?: { valuationRecord?: boolean; valuationNote?: string | null }) => Promise<boolean>;
   deleteAsset: (id: string) => Promise<boolean>;
+
+  /** Documents centre: persist a validated doc (blob written first). */
+  addDocument: (built: NewDocumentRecord) => Promise<string | null>;
+  updateDocument: (id: string, patch: Partial<DocumentRecord>) => Promise<string | null>;
+  deleteDocument: (id: string) => Promise<boolean>;
   markSold: (id: string, saleDate: string | null, proceedsLkr: number | null) => Promise<boolean>;
   restoreFromSold: (id: string) => Promise<boolean>;
   archiveAsset: (id: string, archived: boolean) => Promise<boolean>;
@@ -165,7 +174,7 @@ export const useData = create<DataState>((set, get) => {
     const profile = profiles.readProfile();
     set({ mode: 'local', adapter, profileName: profile?.username ?? null, error: null });
     const bundle = await adapter.init();
-    set({ assets: bundle.assets, records: bundle.records, error: null });
+    set({ assets: bundle.assets, records: bundle.records, documents: bundle.documents ?? [], error: null });
     if (profile?.displayName && !get().settings.ownerName) {
       set({ settings: { ...get().settings, ownerName: profile.displayName } });
       localStorage.setItem(SETTINGS_KEY, JSON.stringify(get().settings));
@@ -174,7 +183,7 @@ export const useData = create<DataState>((set, get) => {
 
   const clearSession = (mode: AppMode) => {
     dekHex = null;
-    set({ mode, adapter: null, assets: [], records: [] });
+    set({ mode, adapter: null, assets: [], records: [], documents: [] });
   };
 
   const failMessage = (cooldownSeconds: number, fallback: string) =>
@@ -185,9 +194,10 @@ export const useData = create<DataState>((set, get) => {
       : fallback;
 
   return {
-    mode: 'loading',
-    assets: [],
-    records: [],
+  mode: 'loading',
+  assets: [],
+  records: [],
+  documents: [],
     settings: loadSettings(),
     market: null,
     overrides: loadOverrides(),
@@ -214,7 +224,7 @@ export const useData = create<DataState>((set, get) => {
             const adapter = new SupabaseAdapter(sb, session.user.id);
             set({ mode: 'cloud', adapter, userEmail: session.user.email ?? null });
             const bundle = await adapter.init();
-            set({ assets: bundle.assets, records: bundle.records, error: null });
+            set({ assets: bundle.assets, records: bundle.records, documents: [], error: null });
             sb.auth.onAuthStateChange((e) => {
               if (e === 'SIGNED_OUT') {
                 localStorage.removeItem(MODE_PREF_KEY);
@@ -478,9 +488,19 @@ export const useData = create<DataState>((set, get) => {
       set({ busy: true });
       try {
         await adapter.deleteAsset(id);
+        // Documents must survive asset deletion — they only become unlinked.
+        const unlinkedDocs: DocumentRecord[] = [];
+        for (const d of get().documents) {
+          if (d.assetId === id) {
+            const next = { ...d, assetId: null };
+            unlinkedDocs.push(next);
+            await adapter.upsertDocument?.(next);
+          }
+        }
         set((s) => ({
           assets: s.assets.filter((a) => a.id !== id),
           records: s.records.filter((r) => r.assetId !== id),
+          documents: unlinkedDocs.length ? s.documents.map((d) => (d.assetId === id ? { ...d, assetId: null } : d)) : s.documents,
         }));
         return true;
       } catch (err) {
@@ -488,6 +508,53 @@ export const useData = create<DataState>((set, get) => {
         return false;
       } finally {
         set({ busy: false });
+      }
+    },
+
+    /* ── Documents centre ────────────────────────────────────────── */
+
+    async addDocument(built) {
+      const { adapter, mode } = get();
+      if (!adapter?.upsertDocument) return 'Documents are available only in the local (offline) vault.';
+      const userId = mode === 'cloud' ? (adapter as SupabaseAdapter).userId : get().profileName ?? 'local-user';
+      const record = { ...built.record, userId };
+      try {
+        await persistDocument({ record, blob: built.blob }, (r) => adapter.upsertDocument!(r));
+        set((s) => ({ documents: [record, ...s.documents] }));
+        return null;
+      } catch (err) {
+        get().pushToast({ kind: 'error', title: 'Could not save document', body: (err as Error).message });
+        return (err as Error).message;
+      }
+    },
+
+    async updateDocument(id, patch) {
+      const { adapter, documents } = get();
+      const current = documents.find((d) => d.id === id);
+      if (!current || !adapter?.upsertDocument) return 'Not found.';
+      try {
+        const next = mergeDocumentPatch(current, patch);
+        await adapter.upsertDocument(next);
+        set((s) => ({ documents: s.documents.map((d) => (d.id === id ? next : d)) }));
+        return null;
+      } catch (err) {
+        get().pushToast({ kind: 'error', title: 'Could not update document', body: (err as Error).message });
+        return (err as Error).message;
+      }
+    },
+
+    async deleteDocument(id) {
+      const { adapter, documents } = get();
+      const target = documents.find((d) => d.id === id);
+      if (!target || !adapter?.removeDocumentRecord) return false;
+      try {
+        await adapter.removeDocumentRecord(id);
+        await deleteDocBlob(id).catch(() => undefined);
+        set((s) => ({ documents: s.documents.filter((d) => d.id !== id) }));
+        return true;
+      } catch (err) {
+        get().pushToast({ kind: 'error', title: 'Could not delete document', body: (err as Error).message });
+        return false;
       }
     },
 
@@ -504,8 +571,27 @@ export const useData = create<DataState>((set, get) => {
     },
 
     async exportBackup(passphrase) {
-      const { assets, records } = get();
-      const json = buildBackup({ assets, records }, passphrase ? { passphrase } : {});
+      const { assets, records, documents } = get();
+      // Inline document payloads so a backup restores files on another device.
+      // Metadata-only entries (file missing from the blob store) still travel.
+      const documentsWithPayload = await Promise.all(
+        documents.map(async (d) => {
+          try {
+            const blob = await getDocBlob(d.id);
+            if (!blob) return d;
+            const b64 = await new Promise<string>((resolve, reject) => {
+              const fr = new FileReader();
+              fr.onload = () => resolve((fr.result as string).split(',')[1] ?? '');
+              fr.onerror = () => reject(fr.error);
+              fr.readAsDataURL(blob);
+            });
+            return { ...d, dataB64: b64 };
+          } catch {
+            return d;
+          }
+        }),
+      );
+      const json = buildBackup({ assets, records, documents: documentsWithPayload }, passphrase ? { passphrase } : {});
       const stamp = new Date().toISOString().slice(0, 10);
       const filename = `vaultfolio-backup-${stamp}.json`;
       return { filename, blob: new Blob([json], { type: 'application/json' }) };
@@ -519,12 +605,37 @@ export const useData = create<DataState>((set, get) => {
         if (!adapter || !(adapter instanceof EncryptedLocalAdapter)) {
           return 'Restore is available only in the local (offline) mode.';
         }
-        await adapter.replaceAll(bundle);
-        set({ assets: bundle.assets, records: bundle.records });
+        // Rehydrate document blobs, then persist CLEAN metadata records.
+        let documents: DocumentRecord[] = [];
+        if (bundle.documents?.length) {
+          for (const d of bundle.documents) {
+            const withPayload = d as DocumentRecord & { dataB64?: string };
+            if (withPayload.dataB64) {
+              try {
+                const bin = atob(withPayload.dataB64);
+                const bytes = new Uint8Array(bin.length);
+                for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+                await putDocBlob(d.id, new Blob([bytes], { type: d.mimeType }));
+              } catch {
+                /* keep metadata; preview will surface the missing-file state */
+              }
+            }
+          }
+          documents = bundle.documents.map((d) => {
+            const { dataB64: _dropped, ...meta } = d as DocumentRecord & { dataB64?: string };
+            void _dropped;
+            return meta;
+          });
+        }
+        await adapter.replaceAll({ assets: bundle.assets, records: bundle.records, documents });
+        set({ assets: bundle.assets, records: bundle.records, documents });
         get().pushToast({
           kind: 'success',
           title: 'Backup restored',
-          body: `${bundle.assets.length} assets and ${bundle.records.length} valuation events.`,
+          body:
+            documents.length > 0
+              ? `${bundle.assets.length} assets, ${bundle.records.length} valuation events, ${documents.length} documents.`
+              : `${bundle.assets.length} assets and ${bundle.records.length} valuation events.`,
         });
         return null;
       } catch (err) {
@@ -535,8 +646,11 @@ export const useData = create<DataState>((set, get) => {
     async wipeVault() {
       const adapter = get().adapter;
       if (adapter && adapter.id === 'local') {
+        for (const d of get().documents) {
+          await deleteDocBlob(d.id).catch(() => undefined);
+        }
         const bundle = await (adapter as EncryptedLocalAdapter).wipe();
-        set({ assets: bundle.assets, records: bundle.records });
+        set({ assets: bundle.assets, records: bundle.records, documents: [] });
         get().pushToast({ kind: 'success', title: 'Vault wiped', body: 'All local data has been removed.' });
       }
     },

@@ -16,6 +16,11 @@
 
 import { z } from 'zod';
 import { buildPortfolioSnapshot, type PortfolioSnapshot } from './insightsContext';
+import {
+  buildEvidencePack,
+  type EvidenceEntry,
+  type EvidencePack,
+} from './insightsEvidence';
 import { buildSnapshot, type ReportPeriod } from './reports';
 import {
   GEMINI_API_BASE,
@@ -137,11 +142,65 @@ export const insightsSchema = z.object({
 export type MetalInsight = z.infer<typeof metalInsightSchema>;
 export type InsightsAnalysis = z.infer<typeof insightsSchema>;
 
+/* ─────────────── Insight cards (v2) — structured visual cards ─────────────── */
+
+export const AI_INSIGHT_CATEGORIES = [
+  'portfolio_overview',
+  'opportunities',
+  'risks',
+  'asset_performance',
+  'market_impact',
+  'concentration',
+  'valuation_warnings',
+  'recommendations',
+] as const;
+export type AiInsightCategory = (typeof AI_INSIGHT_CATEGORIES)[number];
+
+export const aiCardSchema = z.object({
+  category: z.enum(AI_INSIGHT_CATEGORIES),
+  headline: z.string().min(1),
+  explanation: z.string().min(1),
+  indicator: z.enum(['positive', 'negative', 'neutral']),
+  evidence_ids: z.array(z.string().min(1)).max(4),
+  confidence: z.enum(CONFIDENCE),
+});
+
+export const insightsAnalysisV2Schema = z.object({
+  market_overview: z.string().min(1),
+  metals: z.array(metalInsightSchema).max(5),
+  cards: z.array(aiCardSchema).min(2).max(8),
+  limitations: z.array(z.string().min(1)).max(10),
+});
+export type InsightsAnalysisV2 = z.infer<typeof insightsAnalysisV2Schema>;
+
+/** An insight card with its cited evidence RESOLVED from the local pack. */
+export interface ResolvedEvidence {
+  id: string;
+  kind: EvidenceEntry['kind'];
+  title: string;
+  direction: 'up' | 'down' | 'flat';
+  numbers: Array<{ label: string; value: string }>;
+  series?: { label: string; unitLabel: string; points: Array<{ x: number; y: number }> };
+  coverage: string;
+}
+
+export interface AiInsightCard {
+  id: string;
+  category: AiInsightCategory;
+  headline: string;
+  explanation: string;
+  indicator: 'positive' | 'negative' | 'neutral';
+  confidence: 'low' | 'medium' | 'high';
+  evidence: ResolvedEvidence[];
+}
+
 /* ─────────────── Prompt construction ─────────────── */
 
 function buildInsightsPrompt(
   market: ReturnType<typeof buildSnapshot>,
   portfolio: PortfolioSnapshot,
+  pack: EvidencePack,
+  previousTitles: string[],
 ): string {
   const compact = {
     market: market,
@@ -161,27 +220,32 @@ function buildInsightsPrompt(
     provenance:
       'Market numbers come from Vaultfolio provider observations; portfolio numbers from the local valuation engine. These are the ONLY numeric facts available to you. Never invent prices, exchange rates, or balances beyond this JSON.',
   };
-
-  return `You are a careful metals-and-portfolio analyst writing a structured INSIGHTS brief for Vaultfolio, a personal physical-asset tracker.
+  return `You are a careful metals-and-portfolio analyst producing Vaultfolio's premium AI-INSIGHTS: a curated set of visual INSIGHT CARDS that explain what happened to THIS portfolio, why, and what it may mean.
 
 STRICT RULES:
-1. Use ONLY the numeric data in the JSON snapshot. Never invent prices, exchange rates, historical returns, news events, or portfolio balances. If something is absent, say so.
-2. Distinguish DATA-GROUNDED statements from general interpretation and label interpretation in your wording. Confidence must match how thin the data is.
-3. When observation counts are low or coverage_note fields are present, say so and use confidence "low" or "uncertain".
-4. NEVER promise or predict guaranteed returns. Do not say any asset "will" rise or fall. Comments on direction are conditional and informational.
-5. Do NOT recommend specific trades. Education and framing only.
-6. Address the portfolio sections specifically (allocation, concentration) using only the supplied aggregates; if the portfolio has no valued assets, say the portfolio section cannot be assessed.
-7. Every insight must mention or imply which data window it is based on (period values are in the snapshot).
-8. Keep list items to one sentence each. Professional, plain language. No markdown inside fields.
-9. When the FX rate is stale or missing from portfolio.fx, note that LKR conversions may be misleading.
+1. Use ONLY the numeric data in the verified snapshot + VERIFIED EVIDENCE list. Never invent prices, exchange rates, returns, news events, or balances. If a fact is absent, say so.
+2. Produce 3 to 8 insight cards. Order them by importance: portfolio_overview first (always include exactly one), then the most significant of: market_impact on the user's actual holdings, asset_performance (biggest movers), concentration, valuation_warnings (stale/missing data),risks, opportunities, and at most one recommendations card.
+3. Each card: headline (one specific sentence, not generic), explanation (2-3 sentences: WHAT changed with the cited numbers' direction, WHY (mechanism), and WHAT IT MEANS for the user), indicator (positive/negative/neutral relative to the portfolio), confidence (how real the data basis is), evidence_ids (0-4 ids from VERIFIED EVIDENCE; cite the entries your explanation rests on).
+4. Headlines must differ from each other AND rotate vs PREVIOUS ANALYSIS HEADLINES (listed below) — do not repeat them verbatim.
+5. NEVER describe unrealised valuation changes as realised profit; never promise, predict, or imply guaranteed returns; no specific trade recommendations; education and framing only.
+6. When observation counts are low, coverage fields say so, or the fx rate is stale/missing, say so in the card and use low confidence — data honesty outranks cleverness.
+7. Every card must reference its window (period shown in the snapshot).
+8. Professional plain language; no markdown inside fields; every explanation self-contained.
+9. If the portfolio has no valued assets, produce portfolio_overview saying so plus valuation_warnings cards about missing data instead of inventing analysis.
 
 Markets: last ${market.period} window. Portfolio asOf: ${portfolio.asOf}.
 
-Verified snapshot:
-${JSON.stringify(compact, null, 1)}`;
+PREVIOUS ANALYSIS HEADLINES (rotate; do not repeat verbatim):
+${previousTitles.length > 0 ? previousTitles.map((t) => `- ${t}`).join('\n') : '(first analysis — none)'}
+
+VERIFIED SNAPSHOT:
+${JSON.stringify(compact, null, 1)}
+
+VERIFIED EVIDENCE (only these evidence_ids may be cited):
+${evidenceDigest(pack)}`;
 }
 
-/* ─────────────── Model output parsing ─────────────── */
+/* ─────────────── Model output parsing (v2) ─────────────── */
 
 function geminiInsightsResponseSchema(): Record<string, unknown> {
   const metalInsight = {
@@ -195,27 +259,142 @@ function geminiInsightsResponseSchema(): Record<string, unknown> {
     },
     required: ['symbol', 'headline', 'comment', 'direction', 'confidence'],
   };
+  const insightCard = {
+    type: 'OBJECT',
+    properties: {
+      category: { type: 'STRING', enum: [...AI_INSIGHT_CATEGORIES] },
+      headline: { type: 'STRING' },
+      explanation: { type: 'STRING' },
+      indicator: { type: 'STRING', enum: ['positive', 'negative', 'neutral'] },
+      evidence_ids: { type: 'ARRAY', items: { type: 'STRING' } },
+      confidence: { type: 'STRING', enum: CONFIDENCE },
+    },
+    required: ['category', 'headline', 'explanation', 'indicator', 'evidence_ids'],
+  };
   return {
     type: 'OBJECT',
     properties: {
       market_overview: { type: 'STRING' },
       metals: { type: 'ARRAY', items: metalInsight },
-      portfolio: {
-        type: 'OBJECT',
-        properties: {
-          summary: { type: 'STRING' },
-          allocation_comment: { type: 'STRING' },
-          concentration_note: { type: 'STRING' },
-        },
-        required: ['summary', 'allocation_comment', 'concentration_note'],
-      },
-      risks: { type: 'ARRAY', items: { type: 'STRING' } },
-      opportunities: { type: 'ARRAY', items: { type: 'STRING' } },
-      tips: { type: 'ARRAY', items: { type: 'STRING' } },
+      cards: { type: 'ARRAY', items: insightCard },
       limitations: { type: 'ARRAY', items: { type: 'STRING' } },
     },
-    required: ['market_overview', 'metals', 'portfolio', 'risks', 'opportunities', 'tips', 'limitations'],
+    required: ['market_overview', 'metals', 'cards', 'limitations'],
   };
+}
+
+/* ─────────────── Card assembly — model citations resolved against the pack ─────────────── */
+
+/**
+ * Deterministic analytics fallback: when the AI provider fails, the same
+ * evidence pack renders as neutral summary cards so the page never breaks
+ * and never presents stale AI prose as if it were fresh.
+ */
+export function deterministicFallbackCards(pack: EvidencePack): AiInsightCard[] {
+  const priority = [
+    'ev_period_perf',
+    'ev_net_gain',
+    'ev_concentration',
+    'ev_valuation_trend',
+    'ev_stale_valuations',
+    'ev_metal_XAU',
+    'ev_metal_XAG',
+  ];
+  const categoryFor: Record<EvidenceEntry['kind'], AiInsightCategory> = {
+    'portfolio-totals': 'portfolio_overview',
+    'period-change': 'portfolio_overview',
+    'metal-market': 'market_impact',
+    allocation: 'concentration',
+    holding: 'asset_performance',
+    mover: 'asset_performance',
+    freshness: 'valuation_warnings',
+    'valuation-trend': 'portfolio_overview',
+  };
+  const byId = new Map(pack.entries.map((e) => [e.id, e] as const));
+  const cards: AiInsightCard[] = [
+    {
+      id: 'fallback-overview',
+      category: 'portfolio_overview',
+      headline: 'Deterministic on-device analysis (AI unavailable)',
+      explanation:
+        'These findings are computed locally from your valuation records and stored market observations. Generate with Gemini again for an interpreted, structured analysis.',
+      indicator: 'neutral',
+      confidence: 'high',
+      evidence: [],
+    },
+  ];
+  let used = 0;
+  for (const id of priority) {
+    const entry = byId.get(id);
+    if (!entry || entry.numbers.length < 2) continue;
+    used += 1;
+    cards.push({
+      id: `fallback-${entry.id}`,
+      category: categoryFor[entry.kind],
+      headline: entry.title,
+      explanation: entry.coverage,
+      indicator: entry.direction === 'up' ? 'positive' : entry.direction === 'down' ? 'negative' : 'neutral',
+      confidence: 'high',
+      evidence: [
+        {
+          id: entry.id,
+          kind: entry.kind,
+          title: entry.title,
+          direction: entry.direction,
+          numbers: entry.numbers,
+          series: entry.series,
+          coverage: entry.coverage,
+        },
+      ],
+    });
+    if (used >= 4) break;
+  }
+  return cards;
+}
+
+function assembleCards(pack: EvidencePack, raw: InsightsAnalysisV2['cards']): AiInsightCard[] {
+  const byId = new Map(pack.entries.map((e) => [e.id, e] as const));
+  const cards: AiInsightCard[] = [];
+  for (const card of raw) {
+    const evidence: ResolvedEvidence[] = [];
+    const seen = new Set<string>();
+    for (const id of card.evidence_ids) {
+      const entry = byId.get(id);
+      if (!entry || seen.has(id)) continue;
+      seen.add(id);
+      evidence.push({
+        id: entry.id,
+        kind: entry.kind,
+        title: entry.title,
+        direction: entry.direction,
+        numbers: entry.numbers,
+        series: entry.series
+          ? { label: entry.series.label, unitLabel: entry.series.unitLabel, points: entry.series.points }
+          : undefined,
+        coverage: entry.coverage,
+      });
+    }
+    cards.push({
+      id: `card-${cards.length + 1}`,
+      category: card.category,
+      headline: sanitizeModelText(card.headline),
+      explanation: sanitizeModelText(card.explanation),
+      indicator: card.indicator,
+      confidence: card.confidence,
+      evidence,
+    });
+  }
+  return cards;
+}
+
+/** Compact evidence digest fed to the model — ids, factual one-liners, numbers. */
+function evidenceDigest(pack: EvidencePack): string {
+  return pack.entries
+    .map((e) => {
+      const nums = e.numbers.map((n) => `${n.label}: ${n.value}`).join('; ');
+      return `- ${e.id} (${e.kind}) :: ${e.title}${nums ? ` :: ${nums}` : ''}${e.coverage ? ` :: coverage: ${e.coverage}` : ''}`;
+    })
+    .join('\n');
 }
 
 /* ─────────────── Insights document ─────────────── */
@@ -226,10 +405,7 @@ export interface InsightsDoc {
   model: GeminiModel;
   marketSummary: string;
   metals: MetalInsight[];
-  portfolio: { summary: string; allocationComment: string; concentrationNote: string };
-  risks: string[];
-  opportunities: string[];
-  tips: string[];
+  cards: AiInsightCard[];
   limitations: string[];
   /** What the model actually had to work with. */
   dataBasis: {
@@ -250,7 +426,8 @@ const INSIGHTS_DISCLAIMER =
 export function assembleInsightsDoc(
   market: ReturnType<typeof buildSnapshot>,
   portfolio: PortfolioSnapshot,
-  analysis: InsightsAnalysis,
+  pack: EvidencePack,
+  analysis: InsightsAnalysisV2,
   model: GeminiModel,
 ): InsightsDoc {
   const providers = Array.from(
@@ -273,17 +450,10 @@ export function assembleInsightsDoc(
       direction: m.direction,
       confidence: m.confidence,
     })),
-    portfolio: {
-      summary: sanitizeModelText(analysis.portfolio.summary),
-      allocationComment: sanitizeModelText(analysis.portfolio.allocation_comment),
-      concentrationNote: sanitizeModelText(analysis.portfolio.concentration_note),
-    },
-    risks: analysis.risks.map(sanitizeModelText),
-    opportunities: analysis.opportunities.map(sanitizeModelText),
-    tips: analysis.tips.map(sanitizeModelText),
+    cards: assembleCards(pack, analysis.cards),
     limitations: [
       ...analysis.limitations.map(sanitizeModelText),
-      'Interpretations are Gemini output validated for structure, not audited for accuracy.',
+      'Interpretations are Gemini output validated for structure; numbers shown in cards come only from the local evidence pack.',
       `Market window: ${market.period}. Observations grow only while fetching runs on this device.`,
     ],
     dataBasis: {
@@ -305,11 +475,24 @@ export async function generateInsights(args: {
   history: import('./marketWatch').PriceObservation[];
   period: ReportPeriod;
   portfolio: PortfolioSnapshot;
+  /** Assets + records feed the deterministic evidence pack. */
+  assets?: import('./types').Asset[];
+  records?: import('./types').ValuationRecord[];
+  market?: import('./types').MarketSnapshot | null;
+  /** Headlines of the last generated analysis, for rotation. */
+  previousTitles?: string[];
   apiKey: string;
   model?: GeminiModel;
 }): Promise<{ doc: InsightsDoc; rawText: string }> {
   const model = args.model ?? getSelectedModel();
   const market = buildSnapshot(args.history, args.period);
+  const pack = buildEvidencePack({
+    assets: args.assets ?? [],
+    records: args.records ?? [],
+    market: args.market ?? null,
+    history: args.history,
+    period: args.period,
+  });
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 60_000);
@@ -318,7 +501,7 @@ export async function generateInsights(args: {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': args.apiKey.trim() },
       body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: buildInsightsPrompt(market, args.portfolio) }] }],
+        contents: [{ role: 'user', parts: [{ text: buildInsightsPrompt(market, args.portfolio, pack, args.previousTitles ?? []) }] }],
         generationConfig: {
           temperature: 0.2,
           maxOutputTokens: 8192,
@@ -350,13 +533,13 @@ export async function generateInsights(args: {
     } catch {
       throw new GeminiError('invalid_json', 'Gemini output was not valid JSON.');
     }
-    const validated = insightsSchema.safeParse(parsed);
+    const validated = insightsAnalysisV2Schema.safeParse(parsed);
     if (!validated.success) {
       const issue = validated.error.issues[0];
       throw new GeminiError('schema', `Insights failed validation at ${issue.path.join('.')}: ${issue.message}`);
     }
 
-    return { doc: assembleInsightsDoc(market, args.portfolio, validated.data, model), rawText };
+    return { doc: assembleInsightsDoc(market, args.portfolio, pack, validated.data, model), rawText };
   } catch (e) {
     if (e instanceof GeminiError) throw e;
     if ((e as Error).name === 'AbortError') throw new GeminiError('timeout', 'Gemini request timed out (60s).');
@@ -381,7 +564,7 @@ async function geminiHttpError(res: Response): Promise<GeminiError> {
 
 /* ─────────────── Last-doc persistence ─────────────── */
 
-const DOC_KEY = 'vaultfolio.aiinsights.v1';
+const DOC_KEY = 'vaultfolio.aiinsights.v2';
 
 export function loadLastInsights(): InsightsDoc | null {
   try {

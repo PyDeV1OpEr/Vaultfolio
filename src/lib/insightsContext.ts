@@ -112,7 +112,7 @@ export function buildPortfolioSnapshot(assets: Asset[], market: MarketSnapshot |
   };
 }
 
-function categoryLabel(category: string): string {
+export function categoryLabel(category: string): string {
   switch (category) {
     case 'gold_silver': return 'Gold & Silver (metals)';
     case 'gems_jewelry': return 'Gems & Jewelry';

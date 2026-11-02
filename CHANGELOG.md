@@ -4,6 +4,18 @@ All notable changes to Vaultfolio are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [SemVer](https://semver.org/spec/v2.0.0.html) — MAJOR.MINOR.PATCH, with PATCH reserved for fixes that don't change persisted data or user-visible flows.
 
+## [1.0.9] — 2026-11-02
+
+### Added
+- **Documents centre (new section)** — a dedicated Documents area for papers that back the physical wealth: metal certificates, purchase receipts, property deeds, land documents, vehicle registration/insurance, watch & jewellery authenticity certificates, warranties, and custom-named categories. Documents can be linked to existing assets and shown with their linked asset in the details panel; general documents stay unlinked. Dashboard shows totals, storage used, recent additions, and category grouping, with search, category filtering, sorting (recent/oldest/alphabetical/category/expiry) and grid/list views.
+- **Document uploads** — drag-and-drop or file-picker upload of PDF/JPEG/PNG/WebP up to 25 MB with type+size validation, name/category/description, issue date and optional expiry date. PDFs preview in an app-internal sandboxed viewer; images preview with zoom. Rename, re-categorise, relink/unlink, download, and delete-with-confirmation are all supported. Nothing uploaded is ever executed.
+- **Expiry tracking** — documents with expiry dates (insurance, warranties) are classified expired / expiring-within-30-days / valid, shown on cards and in a dashboard warning, with human-readable remaining time. No expiry date is ever invented.
+- **Document storage architecture** — document *metadata* lives inside the existing encrypted vault (AES-256-GCM encrypted at rest) and therefore travels inside the standard encrypted backup/restore flow; document *binaries* live in a separate IndexedDB blob store keyed by document id, keeping vault payloads small and previews fast. Restores on another device re-bind blobs by id; orphan blobs (records lost, partial restore, crashes) are garbage-collected on the next launch. Deleting a document never touches its linked asset, and deleting an asset leaves the document in place, unlinked.
+- **AI Insights upgrade (integration)** — per-insight historical context now reaches the model: the evidence pack behind each Gemini insight card includes recorded valuation history (first/previous/latest per asset, period deltas), so explanations can cite actual past values instead of only the current snapshot. Insights are validated structured cards (headline, explanation, indicator, evidence ids) with a deterministic on-device fallback when no key is configured or the provider fails.
+
+### Tests
+- New `documents` module covered by 17 unit tests (file-type/size validation, category handling, metadata patching incl. blanked-name rejection and provenance immutability, expiry classification/human wording, id uniqueness, size formatting). `insightsEvidence` extended for history-aware context. Restores verify documents round-trip. Full suite: 160/160 passing; `tsc --noEmit` clean.
+
 ## [1.0.8] — 2026-11-01
 
 ### Added

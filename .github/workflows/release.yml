@@ -59,7 +59,29 @@ jobs:
           | macOS — Intel | `Vaultfolio-macOS-x64.dmg` |
           | Windows 10/11 — x64 | `Vaultfolio-Windows-x64-setup.exe` |
 
-          ## What's new
+          ## What's new in 1.0.9
+          - **Documents centre (new)** — store certificates, purchase receipts,
+            property deeds, vehicle registration/insurance, watch & jewellery
+            certificates, warranties and custom categories; link documents to
+            existing assets; drag-and-drop upload of PDF/JPEG/PNG/WebP (25 MB cap,
+            validated); sandboxed PDF preview; rename/re-categorise/relink;
+            download; delete with confirmation; expiry tracking (expired /
+            expiring-within-30-days / valid) with a dashboard warning.
+          - **Document storage** — metadata lives inside the encrypted vault and
+            travels inside the existing encrypted backup/restore; file binaries
+            stay local in a dedicated blob store and are never executed; restoring
+            a backup on another device re-binds files by id, and orphan blobs are
+            garbage-collected automatically.
+          - **AI Insights upgrade** — every Gemini insight card is backed by a
+            richer locally computed evidence pack that now includes recorded
+            valuation history, so explanations cite actual past values and period
+            deltas. Structured output is validated against the evidence; without
+            a key the section falls back to deterministic on-device cards.
+          - Carried from 1.0.5–1.0.8: automatic metal valuations from live market
+            data, keyless USD→LKR conversion, Market Watch, portfolio analytics,
+            per-period performance and biggest movers.
+
+          ## Carried platform notes (1.0.5–1.0.8)
           - Market Watch adds optional international USD reference quotes for gold,
             silver, platinum, palladium, and copper through GoldAPI.io with the
             keyless gold-api.com fallback covering all five metals (copper via COMEX

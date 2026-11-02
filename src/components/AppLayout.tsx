@@ -5,6 +5,7 @@ import {
   BarChart3,
   CheckCircle2,
   FileText,
+  Files,
   Info,
   LayoutDashboard,
   Loader2,
@@ -31,6 +32,7 @@ const PORTFOLIO_NAV = [
   { to: '/reports', label: 'Reports', icon: FileText },
   { to: '/insights', label: 'Insights', icon: BarChart3 },
   { to: '/ai-insights', label: 'AI Insights', icon: Sparkles },
+  { to: '/documents', label: 'Documents', icon: Files },
 ];
 
 const PREFERENCES_NAV = [

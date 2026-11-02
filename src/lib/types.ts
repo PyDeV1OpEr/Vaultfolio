@@ -176,6 +176,52 @@ export interface ValuationRecord {
   recordedAt: string;
 }
 
+/* ═════════════════ Documentation centre ═════════════════ */
+
+/**
+ * Curated document categories. Custom user categories are allowed by the
+ * storage layer (`category` is a free string); UI treats unknown values as
+ * "Custom".
+ */
+export type DocumentCategory =
+  | 'gold_certificate'
+  | 'silver_certificate'
+  | 'platinum_certificate'
+  | 'palladium_certificate'
+  | 'purchase_receipt'
+  | 'property_deed'
+  | 'land_document'
+  | 'vehicle_registration'
+  | 'vehicle_insurance'
+  | 'watch_certificate'
+  | 'jewelry_certificate'
+  | 'warranty'
+  | 'insurance'
+  | 'other';
+
+export type DocumentExpiryStatus = 'valid' | 'expiring' | 'expired';
+
+/** Metadata for a stored document. The binary lives in the document blob store. */
+export interface DocumentRecord {
+  id: string;
+  userId: string;
+  /** Display name (editable; independent of the stored file name). */
+  name: string;
+  /** Free string; known DocumentCategory values are surfaced with icons. */
+  category: string;
+  /** Linked asset id, or null for a general document. */
+  assetId: string | null;
+  /** Original file name at upload time (stored, not used for execution). */
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  addedAt: string;
+  /** Optional issue / expiry dates for certificates, insurance, warranties. */
+  issuedAt: string | null;
+  expiresAt: string | null;
+  description: string | null;
+}
+
 export interface AppSettings {
   displayCurrency: CurrencyCode;
   locale: string;
