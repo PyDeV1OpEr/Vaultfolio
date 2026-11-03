@@ -174,6 +174,23 @@ export interface ValuationRecord {
   confidence: ValuationConfidence;
   note?: string | null;
   recordedAt: string;
+  /* ── Optional appraisal extras (Valuation Centre). Backwards compatible:
+     absent on legacy records; passthrough in the backup schema. ── */
+  /** Provenance family for the record. */
+  provenance?: 'ai_appraisal' | 'manual' | 'market';
+  /** AI/estimate range (LKR). */
+  lowLkr?: number | null;
+  highLkr?: number | null;
+  /** Deterministic explanation for the estimate (may be long). */
+  explanation?: string | null;
+  /** Positive value factors. */
+  positives?: string[] | null;
+  /** Negative value factors. */
+  negatives?: string[] | null;
+  /** Market-evidence lines, each explicitly labelled verified or not. */
+  evidence?: { description: string; sourceKind: 'verified' | 'model_knowledge' | 'user_supplied'; isAskingPrice?: boolean }[] | null;
+  /** User approval was explicit (approve-and-save flows). */
+  approved?: boolean;
 }
 
 /* ═════════════════ Documentation centre ═════════════════ */

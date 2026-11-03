@@ -4,6 +4,22 @@ All notable changes to Vaultfolio are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [SemVer](https://semver.org/spec/v2.0.0.html) — MAJOR.MINOR.PATCH, with PATCH reserved for fixes that don't change persisted data or user-visible flows.
 
+## [1.1.0] — 2026-11-03
+
+### Added
+- **Valuation Centre (new section)** — a dedicated appraisal workspace for estimating, recording and reassessing what physical assets may be worth. Two prominent entry points (AI valuation and Manual valuation), a needs-attention list that classifies each active asset as "needs a valuation", "reassessment due", "information changed — consider a new valuation" or "fresh" (keyed to the append-only valuation history and a configurable reassessment cadence (Manual only / Monthly / Every 3 months / Every 6 months / Annually)), a recently-valued list, category filters, last-valuation dates, current estimates and directional indicators. It is deliberately *not* a second portfolio dashboard: no charts duplicated from Insights, no shadow Overview, no second market feed.
+- **AI Valuation workflow** — a step-by-step conversational appraisal: the asset (existing or new) supplies what My Assets already knows, a short category-specific interview asks ONLY the gaps (watch reference/serial/condition/box+papers, land district/city/extent/road access/utilities, vehicle mileage/variant/fuel, gem cut/clarity/colour/certification), the user can skip anything and skipped questions are logged as missing information impact, then Gemini returns a validated, range-clamped estimate (low / expected / high, confidence, methodology, positive/negative factors). Metals never reach the model's pricing path: their values are computed deterministically from the same Market Watch observation store every other page uses, and every line of market-evidence is explicitly labelled verified / pattern-unverified / user-supplied. Result must be explicitly approved to become the official estimate; "Edit information" and "Generate again" preserved.
+- **Category-specific appraisal engine** — a shared engine per asset category with honesty rules baked into the prompt (asking vs completed-sale prices for watches, deed/boundary non-verification for land, no gem authentication, no assumed price rides for precious metals): [appraisal.ts](src/lib/appraisal.ts) plus the Gemini structured-output layer [aiValuation.ts](src/lib/aiValuation.ts).
+- **Manual Valuation workflow** — date, currency of entry (LKR or USD converted via the verified FX rate displayed below the field), notes and asset notes; saved Valuation Records keep the original purchase price untouched.
+- **Valuation history & appreciation** — every approved appraisal creates an append-only ValuationRecord with low/high estimates, provenance (ai_appraisal / manual / market), confidence, explanation, value factors and evidence lines; the asset detail sheet shows the estimated movement since the previous valuation or purchase, a full timeline, and a per-record range. This connects with the analytics page — never labelled achieved profit.
+- **Premium PIN lock screen** — new numeric-keypad unlock experience (branding + time-of-day greeting, pop-in animated PIN indicators that never reveal digits, 1-9/0 with backspace and clear, an animated unlock gate, physical-keyboard digit entry fully synced with the keypad, shake-on-error feedback, and a success-gate transition). The underlying authentication is unchanged: same vault DEK unwrap, same persisted failed-attempt counter and 5-minute lockout, same username+password PIN recovery, same password fallback for users without a PIN.
+
+### Tests
+- New `appraisal` module covered by 22 unit tests: the follow-up-question suppressor logic (a complete asset record asks only what it cannot know), valuation-need classification, movement maths (never labelled realized profit), latest-record lookup, and the AI appraisal output validation/clamp pipeline (invalid JSON, schema violations, inverted ranges clamped so low ≤ expected ≤ high). Full suite: **182/182** passing; `tsc --noEmit` clean; production Vite build clean.
+
+### Packaging note
+- The macOS DMG remains Developer-ID-unsigned in CI, because no Apple credentials are configured. See the 1.0.9 packaging notes for the full Sign & Notarize secret setup that turns the next build into a notarized install experience.
+
 ## [1.0.9] — 2026-11-02
 
 ### Added

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { z } from 'zod';
-import type { AppSettings, Asset, MarketSnapshot, ManualPriceOverride, DocumentRecord, ValuationRecord, ValuationConfidence } from '../lib/types';
+import type { AppSettings, Asset, MarketSnapshot, ManualPriceOverride, DocumentRecord, ValuationRecord, ValuationConfidence, ValuationMethod } from '../lib/types';
+import { loadValuationPrefs, saveValuationPrefs, type ValuationPrefs } from '../lib/appraisal';
 import { loadMarketData } from '../lib/market';
 import { syncObservationsIfDue } from '../lib/marketWatch';
 import { EncryptedLocalAdapter, SupabaseAdapter, DataAdapter } from '../lib/storage';
@@ -90,6 +91,8 @@ interface DataState {
   records: ValuationRecord[];
   /** Documents-centre metadata (binaries live in the local blob store). */
   documents: DocumentRecord[];
+  /** Valuation Centre reassessment preferences. */
+  valuationPrefs: ValuationPrefs;
   settings: AppSettings;
   market: MarketSnapshot | null;
   overrides: Partial<Record<ManualPriceOverride['kind'], number>>;
@@ -135,6 +138,20 @@ interface DataState {
   updateDocument: (id: string, patch: Partial<DocumentRecord>) => Promise<string | null>;
   deleteDocument: (id: string) => Promise<boolean>;
   markSold: (id: string, saleDate: string | null, proceedsLkr: number | null) => Promise<boolean>;
+  /** Valuation Centre: persist an approved valuation result as a full record. */
+  recordValuation: (input: {
+    assetId: string;
+    valueLkr: number;
+    method: ValuationMethod;
+    sourceLabel: string;
+    confidence: ValuationConfidence;
+    note?: string | null;
+    /** Full ISO timestamp the valuation takes effect from (user-picked date allowed). */
+    effectiveAt?: string | null;
+    extras?: Partial<Omit<ValuationRecord, 'id' | 'assetId' | 'userId' | 'valueLkr' | 'method' | 'sourceLabel' | 'confidence' | 'note' | 'recordedAt'>>;
+  }) => Promise<boolean>;
+  /** Valuation Centre: change the reassessment cadence. */
+  setCadence: (cadence: ValuationPrefs['cadence']) => void;
   restoreFromSold: (id: string) => Promise<boolean>;
   archiveAsset: (id: string, archived: boolean) => Promise<boolean>;
 
@@ -186,6 +203,14 @@ export const useData = create<DataState>((set, get) => {
     set({ mode, adapter: null, assets: [], records: [], documents: [] });
   };
 
+  const ensurePayloadDate = (input: string | null | undefined): string => {
+    if (!input || Number.isNaN(new Date(input).getTime())) return new Date().toISOString();
+    // Date-only strings (user-picked valuation date) normalise to midday UTC
+    // so timeline sorting treats the whole day uniformly.
+    if (/^\d{4}-\d{2}-\d{2}$/.test(input.trim())) return `${input.trim()}T12:00:00.000Z`;
+    return new Date(input).toISOString();
+  };
+
   const failMessage = (cooldownSeconds: number, fallback: string) =>
     cooldownSeconds > 0
       ? cooldownSeconds >= 60
@@ -198,6 +223,7 @@ export const useData = create<DataState>((set, get) => {
   assets: [],
   records: [],
   documents: [],
+  valuationPrefs: loadValuationPrefs(),
     settings: loadSettings(),
     market: null,
     overrides: loadOverrides(),
@@ -560,6 +586,66 @@ export const useData = create<DataState>((set, get) => {
 
     async markSold(id, saleDate, proceedsLkr) {
       return get().updateAsset(id, { status: 'sold', sold: { date: saleDate, proceedsLkr } });
+    },
+
+    /* ── Valuation Centre ─────────────────────────────────────────── */
+
+    async recordValuation(input) {
+      const { assets, adapter } = get();
+      const current = assets.find((a) => a.id === input.assetId);
+      if (!current) return false;
+      if (!(input.valueLkr > 0) || !Number.isFinite(input.valueLkr)) return false;
+      const stamp = ensurePayloadDate(input.effectiveAt);
+      const record: ValuationRecord = {
+        id: newId(),
+        assetId: current.id,
+        userId: current.userId,
+        valueLkr: input.valueLkr,
+        method: input.method,
+        sourceLabel: input.sourceLabel,
+        confidence: input.confidence,
+        note: input.note ?? null,
+        recordedAt: stamp,
+        approved: true,
+        ...(input.extras ?? {}),
+      };
+      const next: Asset = {
+        ...current,
+        valuation: {
+          valueLkr: input.valueLkr,
+          method: input.method,
+          sourceLabel: input.sourceLabel,
+          confidence: input.confidence,
+          note: input.note ?? null,
+          updatedAt: stamp,
+        },
+        updatedAt: stamp,
+      };
+      set({ busy: true });
+      try {
+        await adapter?.updateAsset(next, record);
+        set((s) => ({
+          assets: s.assets.map((a) => (a.id === input.assetId ? next : a)),
+          records: [record, ...s.records],
+        }));
+        get().pushToast({
+          kind: 'success',
+          title: 'Valuation saved',
+          body: `${current.name}: ${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(input.valueLkr)} LKR recorded as the current estimate.`,
+        });
+        return true;
+      } catch (err) {
+        get().pushToast({ kind: 'error', title: 'Could not save valuation', body: (err as Error).message });
+        return false;
+      } finally {
+        set({ busy: false });
+      }
+    },
+
+    setCadence(cadence) {
+      const next = { ...get().valuationPrefs, cadence };
+      set({ valuationPrefs: next });
+      saveValuationPrefs(next);
     },
 
     async restoreFromSold(id) {

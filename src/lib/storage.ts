@@ -137,7 +137,9 @@ export class EncryptedLocalAdapter implements DataAdapter {
 
   /** Replace the whole portfolio (restore path); assumes validation happened upstream. */
   async replaceAll(bundle: LocalDoc) {
-    this.persist({ assets: bundle.assets, records: bundle.records });
+    // Documents metadata must round-trip restores (binaries rehydrate from the
+    // inline backup payload in the caller). Previously dropped here — fixed.
+    this.persist({ assets: bundle.assets, records: bundle.records, documents: bundle.documents ?? [] });
   }
 
   /** Wipe the encrypted vault (user-initiated Reset); returns an empty bundle. */
