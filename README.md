@@ -6,19 +6,20 @@ Vaultfolio tracks physical assets—precious metals, jewelry and gemstones, watc
 
 ## Download Vaultfolio for macOS
 
-- **Download:** [`Vaultfolio-macOS-arm64.dmg`](https://github.com/PyDeV1OpEr/Vaultfolio/releases/latest/download/Vaultfolio-macOS-arm64.dmg) — Vaultfolio **1.0.9**, Apple Silicon (M-series Macs). Intel Macs use [`Vaultfolio-macOS-x64.dmg`](https://github.com/PyDeV1OpEr/Vaultfolio/releases/latest/download/Vaultfolio-macOS-x64.dmg).
+- **Download:** [`Vaultfolio-macOS.dmg`](https://github.com/PyDeV1OpEr/Vaultfolio/releases/latest/download/Vaultfolio-macOS.dmg) — Vaultfolio **1.1.1**, Apple Silicon (M-series Macs). Intel Macs use [`Vaultfolio-macOS-x64.dmg`](https://github.com/PyDeV1OpEr/Vaultfolio/releases/latest/download/Vaultfolio-macOS-x64.dmg).
 - **Install (3 steps):** ① Open the DMG → ② drag **Vaultfolio** onto the **Applications** shortcut → ③ launch Vaultfolio from Applications.
 - The DMG window shows the app and the Applications shortcut side by side; no other files need to be copied.
+- **1.1.1 fixes the blank-screen-after-unlock bug reported on v1.1.0:** entering the correct password/PIN crashed the app shell before the dashboard could render. The dashboard now loads immediately after a successful unlock (verified against the production bundle on first launch, after restart, and after re-locking).
 - **Honest signing status:** these builds are ad-hoc signed and not notarized (no Apple Developer ID certificate was available), so the **first** launch may still show the Gatekeeper warning — Control-click the app, choose **Open**, then it opens normally forever after. The build pipeline already supports one-click Developer ID signing + Apple notarization the moment the repository's `APPLE_*` secrets are configured (see [DESKTOP.md](DESKTOP.md)); those builds will install with no warning at all.
 - Verify your download: SHA-256 checksums are published in the [release notes](https://github.com/PyDeV1OpEr/Vaultfolio/releases/latest).
 
 ## Download the Latest Version
 
-**Truthful builds from current source.** Do not use v1.0.2, v1.0.3, or v1.0.4: v1.0.2 has a stale frontend, v1.0.3's macOS bundle has an invalid signature, and v1.0.4 was built before the AI Market Reports feature merged. **v1.0.9 is the current source** (2026-11-02): it adds the Documents centre (certificate/receipt/deed management linked to assets, expiry tracking, encrypted-at-rest metadata inside the standard backup) and upgrades AI Insights with history-aware evidence packs behind every structured insight card; plus everything from 1.0.8 — the per-period portfolio-performance panel (7 d/30 d/90 d/1 y/All), biggest-movers and market-move sections, a valuation-freshness panel — and 1.0.7/1.0.6 — metal assets refresh valuations from current market data at app boot and on every Refresh click, automatic keyless USD→LKR conversion with timestamps, and automatic market valuations for supported metal assets — rebuilt for all three platforms from the tagged commit.
+**Truthful builds from current source.** Do not use v1.0.2–v1.0.4 (stale/invalid builds) or v1.1.0 (unlock blank-screen regression — fixed in v1.1.1). **v1.1.1 is the current source** (2026-11-04): it carries everything from v1.1.0 — the Valuation Centre (AI appraisals + manual valuations + append-only history), the premium PIN keypad lock screen, the Documents centre, and the history-aware AI Insights — with the password→dashboard black-screen crash removed.
 
 | Platform | Download |
 | --- | --- |
-| macOS Apple Silicon (arm64) | [Vaultfolio-macOS-arm64.dmg](https://github.com/PyDeV1OpEr/Vaultfolio/releases/latest/download/Vaultfolio-macOS-arm64.dmg) |
+| macOS Apple Silicon (arm64) | [Vaultfolio-macOS.dmg](https://github.com/PyDeV1OpEr/Vaultfolio/releases/latest/download/Vaultfolio-macOS.dmg) |
 | macOS Intel (x64) | [Vaultfolio-macOS-x64.dmg](https://github.com/PyDeV1OpEr/Vaultfolio/releases/latest/download/Vaultfolio-macOS-x64.dmg) |
 | Windows 10/11 (x64) | [Vaultfolio-Windows-x64-setup.exe](https://github.com/PyDeV1OpEr/Vaultfolio/releases/latest/download/Vaultfolio-Windows-x64-setup.exe) |
 

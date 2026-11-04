@@ -1,6 +1,6 @@
 [package]
 name = "vaultfolio"
-version = "1.0.6"
+version = "1.1.1"
 description = "Private wealth tracking for physical assets"
 authors = ["Vaultfolio"]
 license = "MIT"

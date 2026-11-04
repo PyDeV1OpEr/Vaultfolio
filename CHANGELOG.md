@@ -4,6 +4,19 @@ All notable changes to Vaultfolio are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [SemVer](https://semver.org/spec/v2.0.0.html) — MAJOR.MINOR.PATCH, with PATCH reserved for fixes that don't change persisted data or user-visible flows.
 
+## [1.1.1] — 2026-11-04
+
+### Fixed
+- **Blank screen after successful unlock (release-blocking regression in v1.1.0)** — entering a correct password/PIN on the v1.1.0 installers crashed the app shell with React error #300/#185 ("Rendered fewer hooks than expected") in the new keypad lock screen: `UnlockScreen` declared its `useCallback` and keyboard `useEffect` hooks *after* the guarded early returns, so the moment authentication succeeded and the mode flipped away from `locked`, React re-rendered with fewer hooks and unmounted the whole tree — leaving a permanently empty window right after the lock screen. The guards now run after every hook, and the render tree is additionally wrapped in a production error boundary (honest error screen with Retry + diagnostics instead of a blank window). Reproduced from the built bundle (onboarding → restart → correct PIN → dashboard, twice), and verified fixed the same way.
+- A time-dependent evidence-pack test (`buildEvidencePack`,"no in-window baseline") that broke as the calendar crossed its fixed 7-day cutoff is now anchored relative to the run date.
+
+### Tests
+- Full suite: **182/182** passing; `tsc --noEmit` clean; production Vite build clean.
+
+### Packaging
+- `src-tauri/Cargo.toml` crate version aligned with the bundle version.
+- macOS DMGs remain Developer-ID-unsigned in CI because no Apple credentials are configured (see the 1.0.9 packaging notes below for the exact secret setup that turns the next build into a notarized install experience).
+
 ## [1.1.0] — 2026-11-03
 
 ### Added

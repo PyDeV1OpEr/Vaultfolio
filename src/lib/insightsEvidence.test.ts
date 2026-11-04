@@ -103,7 +103,10 @@ describe('buildEvidencePack', () => {
   });
 
   it('reports no in-window baseline honestly when nothing is recorded at/before the cutoff', () => {
-    const records = [rec('a1', 240_000, '2026-10-28T00:00:00Z')]; // after the 7-day cutoff
+    // Mid-window stamp (3.5 days back) so the record always lies just AFTER the
+    // 7-day cutoff regardless of when vitest runs — a fixed calendar date made
+    // this test time-dependent.
+    const records = [rec('a1', 240_000, new Date(Date.now() - 3.5 * 24 * 60 * 60 * 1000).toISOString())];
     const pack = buildEvidencePack({ assets, records, market: null, history: [], period: '7d' });
     const perf = pack.entries.find((e) => e.id === 'ev_period_perf')!;
     expect(perf.title).toMatch(/No recorded valuation baseline inside the 7 days window/);

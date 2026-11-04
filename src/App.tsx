@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
-import { Route, Routes } from 'react-router-dom';
+import { Component, useEffect, type ErrorInfo, type ReactNode } from 'react';
+import { Route, Routes, Link as RouterLink } from 'react-router-dom';
+import { Button } from './components/ui';
 import { AppLayout } from './components/AppLayout';
 import { Overview } from './pages/Overview';
 import { Portfolio } from './pages/Portfolio';
@@ -22,6 +23,67 @@ import { Link } from 'react-router-dom';
 import { Navigate } from 'react-router-dom';
 
 const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
+
+/**
+ * Production error boundary. Without this, any render crash unmounts the
+ * whole React tree and leaves the packaged app staring at an empty window —
+ * the exact "opens to a completely blank screen" release defect. Instead, the
+ * user gets an honest explanation, a Retry action and diagnosable detail.
+ */
+class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state: { error: Error | null } = { error: null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    // Console keeps it debuggable under devtools; the UI keeps it humane.
+    console.error('[Vaultfolio] startup/render failure:', error, info.componentStack);
+  }
+
+  private retry = () => {
+    this.setState({ error: null });
+    // Full reload re-runs boot() so the app initialises from a clean state.
+    window.location.reload();
+  };
+
+  render() {
+    const { error } = this.state;
+    if (!error) return this.props.children;
+    return (
+      <div className="min-h-screen bg-ink-950 text-txt flex items-center justify-center px-4 py-10">
+        <div className="w-full max-w-md text-center">
+          <div className="w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center mx-auto mb-4">
+            <span className="text-2xl" role="img" aria-label="Warning">⚠️</span>
+          </div>
+          <h1 className="text-lg font-semibold tracking-tight">Vaultfolio hit an unexpected error</h1>
+          <p className="text-sm text-txt-muted mt-2">
+            Your data is safe — it stays encrypted on this device. The app hit a
+            problem while rendering this screen.
+          </p>
+          <Button variant="primary" className="mt-5" onClick={this.retry}>
+            Retry
+          </Button>
+          <details className="mt-6 text-left">
+            <summary className="text-xs text-txt-dim cursor-pointer select-none">
+              Show diagnostic information
+            </summary>
+            <pre className="mt-2 text-2xs leading-5 text-txt-dim bg-ink-900 border border-ink-700 rounded-xl p-3 overflow-auto max-h-56 whitespace-pre-wrap break-words">
+              {error.message}
+              {typeof window !== 'undefined'
+                ? `\nroute: ${window.location.pathname}\nbuild: ${import.meta.env.VITE_APP_VERSION ?? 'dev'}`
+                : ''}
+            </pre>
+          </details>
+          <RouterLink to="/" className="inline-block mt-4 text-xs text-txt-muted hover:text-txt underline underline-offset-2">
+            Back to the vault
+          </RouterLink>
+        </div>
+      </div>
+    );
+  }
+}
 
 export default function App() {
   const boot = useStore((s) => s.boot);
@@ -55,7 +117,8 @@ export default function App() {
   }, [mode, lock]);
 
   return (
-    <Routes>
+    <ErrorBoundary>
+      <Routes>
       <Route path="/auth" element={<AuthScreen />} />
       <Route path="/onboarding" element={<OnboardingScreen />} />
       <Route path="/unlock" element={<UnlockScreen />} />
@@ -87,6 +150,7 @@ export default function App() {
           }
         />
       </Route>
-    </Routes>
+      </Routes>
+    </ErrorBoundary>
   );
 }

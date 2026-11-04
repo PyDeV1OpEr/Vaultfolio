@@ -19,8 +19,10 @@ defaults:
 
 env:
   # Canonical artifact names. README download links must match these
-  # exactly. Build steps copy native Tauri output to these names.
-  MAC_ARM64_ARTIFACT: Vaultfolio-macOS-arm64.dmg
+  # exactly. Build steps copy native Tauri output to these names. The
+  # flagship macOS download is the Apple Silicon build under the plain
+  # Vaultfolio-macOS.dmg name; Intel keeps an explicit -x64 suffix.
+  MAC_ARM64_ARTIFACT: Vaultfolio-macOS.dmg
   MAC_X64_ARTIFACT: Vaultfolio-macOS-x64.dmg
   WIN_X64_ARTIFACT: Vaultfolio-Windows-x64-setup.exe
 
@@ -55,31 +57,22 @@ jobs:
 
           | Platform | File |
           | --- | --- |
-          | macOS — Apple Silicon (M-series) | `Vaultfolio-macOS-arm64.dmg` |
+          | macOS — Apple Silicon (M-series) | `Vaultfolio-macOS.dmg` |
           | macOS — Intel | `Vaultfolio-macOS-x64.dmg` |
           | Windows 10/11 — x64 | `Vaultfolio-Windows-x64-setup.exe` |
 
-          ## What's new in 1.0.9
-          - **Documents centre (new)** — store certificates, purchase receipts,
-            property deeds, vehicle registration/insurance, watch & jewellery
-            certificates, warranties and custom categories; link documents to
-            existing assets; drag-and-drop upload of PDF/JPEG/PNG/WebP (25 MB cap,
-            validated); sandboxed PDF preview; rename/re-categorise/relink;
-            download; delete with confirmation; expiry tracking (expired /
-            expiring-within-30-days / valid) with a dashboard warning.
-          - **Document storage** — metadata lives inside the encrypted vault and
-            travels inside the existing encrypted backup/restore; file binaries
-            stay local in a dedicated blob store and are never executed; restoring
-            a backup on another device re-binds files by id, and orphan blobs are
-            garbage-collected automatically.
-          - **AI Insights upgrade** — every Gemini insight card is backed by a
-            richer locally computed evidence pack that now includes recorded
-            valuation history, so explanations cite actual past values and period
-            deltas. Structured output is validated against the evidence; without
-            a key the section falls back to deterministic on-device cards.
-          - Carried from 1.0.5–1.0.8: automatic metal valuations from live market
-            data, keyless USD→LKR conversion, Market Watch, portfolio analytics,
-            per-period performance and biggest movers.
+          ## What's new in this release
+          - **Fixed: blank screen after unlocking (v1.1.0 regression)** —
+            entering a correct password/PIN crashed the app shell before the
+            dashboard rendered (React "fewer hooks than expected" in the
+            v1.1.0 keypad lock screen). Unlock now lands directly on the
+            Overview dashboard; verified against the production bundle.
+          - **Error boundary** — any future render failure now shows an honest
+            error screen (Retry + diagnostics) instead of an empty window.
+          - Roomy 1.1.0 features carried in fully: **Valuation Centre** (AI
+            appraisals you explicitly approve, manual valuations with history,
+            reassessment cadence), the premium PIN keypad lock screen, the
+            Documents centre, and history-aware AI Insights.
 
           ## Carried platform notes (1.0.5–1.0.8)
           - Market Watch adds optional international USD reference quotes for gold,

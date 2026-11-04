@@ -92,9 +92,6 @@ export function UnlockScreen() {
     return () => clearInterval(t);
   }, [cooldown, pinCooldownRemaining]);
 
-  if (mode === 'loading') return null;
-  if (mode !== 'locked') return <Navigate to="/" replace />;
-
   const digits = pinLength() ?? 6;
 
   const doUnlockPin = useCallback(
@@ -152,6 +149,17 @@ export function UnlockScreen() {
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [method, tab, pin, cooldown, pending, digits]);
+
+  /*
+   * Guards live AFTER every hook. They used to sit above the useCallback and
+   * keyboard useEffect below (hooks were declared conditionally), which broke
+   * React's hook invariant on the exact unlock-success transition: mode flips
+   * from 'locked' so the early <Navigate> path rendered fewer hooks and the
+   * tree crashed before AppLayout could take over — the "black screen after
+   * correct password" bug. Never place hooks after these early returns.
+   */
+  if (mode === 'loading') return null;
+  if (mode !== 'locked') return <Navigate to="/" replace />;
 
   const submitPassword = async (e: React.FormEvent) => {
     e.preventDefault();
