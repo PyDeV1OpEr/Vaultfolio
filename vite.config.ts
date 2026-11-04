@@ -6,4 +6,14 @@ export default defineConfig({
   server: {
     port: 5173,
   },
+  test: {
+    // Never scan Tauri build output — a stray DMG staging folder once made
+    // vitest import other applications' test suites and report false failures.
+    exclude: [
+      'node_modules/**',
+      'dist/**',
+      'dist-desktop/**',
+      'src-tauri/target/**',
+    ],
+  },
 });

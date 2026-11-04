@@ -93,14 +93,33 @@ export function Documents() {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const hasAny = (documents as any[]).length > 0;
+
+  /*
+   * All overlays (upload/edit/preview/delete) are rendered in BOTH branches.
+   * They used to sit only below the empty-state early return, so with zero
+   * documents the “Upload document” button set uploadOpen on a dialog that
+   * was never mounted — the click appeared dead (no picker, no dialog).
+   */
+  const dialogs = (
+    <>
+      {uploadOpen && <UploadDialog onClose={() => setUploadOpen(false)} assets={assets} />}
+      {editTarget && <EditDialog doc={editTarget} assets={assets} onClose={() => setEditTarget(null)} onUpdate={updateDocument} />}
+      {previewTarget && <PreviewDialog doc={previewTarget} assetNameById={assetNameById} onClose={() => setPreviewTarget(null)} />}
+      {deleteTarget && <DeleteDialog doc={deleteTarget} assetNameById={assetNameById} onClose={() => setDeleteTarget(null)} onConfirm={deleteDocument} />}
+    </>
+  );
+
   if (!hasAny) {
     return (
-      <EmptyState
-        icon={<Files className="text-accent" size={28} />}
-        title="No documents yet"
-        body="Store certificates, deeds, receipts and insurance papers for your physical assets — encrypted, offline, and linked to your portfolio."
-        action={<PrimaryBtn onClick={() => setUploadOpen(true)}><Upload size={15} /> Upload document</PrimaryBtn>}
-      />
+      <>
+        <EmptyState
+          icon={<Files className="text-accent" size={28} />}
+          title="No documents yet"
+          body="Store certificates, deeds, receipts and insurance papers for your physical assets — encrypted, offline, and linked to your portfolio."
+          action={<PrimaryBtn onClick={() => setUploadOpen(true)}><Upload size={15} /> Upload document</PrimaryBtn>}
+        />
+        {dialogs}
+      </>
     );
   }
 
@@ -125,11 +144,7 @@ export function Documents() {
           onEdit={setEditTarget} onPreview={setPreviewTarget} onDelete={setDeleteTarget}
         />
       )}
-
-      {uploadOpen && <UploadDialog onClose={() => setUploadOpen(false)} assets={assets} />}
-      {editTarget && <EditDialog doc={editTarget} assets={assets} onClose={() => setEditTarget(null)} onUpdate={updateDocument} />}
-      {previewTarget && <PreviewDialog doc={previewTarget} assetNameById={assetNameById} onClose={() => setPreviewTarget(null)} />}
-      {deleteTarget && <DeleteDialog doc={deleteTarget} assetNameById={assetNameById} onClose={() => setDeleteTarget(null)} onConfirm={deleteDocument} />}
+      {dialogs}
     </div>
   );
 }
@@ -531,7 +546,6 @@ function PreviewDialog({ doc, assetNameById, onClose }: {
         <DocMetaTable doc={doc} assetName={doc.assetId ? assetNameById.get(doc.assetId) : undefined} />
 
         <div className="flex flex-wrap justify-end gap-2">
-          <a href="/portfolio" onClick={(e) => { e.preventDefault(); onClose(); }} className="hidden" aria-hidden />
           <button onClick={download} className="inline-flex items-center gap-1.5 rounded-lg border border-ink-700 px-3 py-1.5 text-xs hover:bg-ink-800"><Download size={13} /> Download</button>
           <button onClick={onClose} className="rounded-lg border border-ink-700 px-3 py-1.5 text-xs hover:bg-ink-800">Close</button>
         </div>

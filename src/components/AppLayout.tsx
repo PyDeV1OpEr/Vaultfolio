@@ -120,7 +120,11 @@ export function AppLayout() {
         </header>
 
         <main className="flex-1 px-4 sm:px-6 lg:px-8 py-6 lg:py-8 w-full max-w-6xl mx-auto">
-          <Outlet />
+          {/* Keyed by route so each navigation replays the fade-up entrance;
+              honours prefers-reduced-motion via the global media query. */}
+          <div key={location.pathname} className="page-enter">
+            <Outlet />
+          </div>
         </main>
       </div>
 

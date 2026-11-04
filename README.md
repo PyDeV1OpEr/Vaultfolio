@@ -6,16 +6,17 @@ Vaultfolio tracks physical assets—precious metals, jewelry and gemstones, watc
 
 ## Download Vaultfolio for macOS
 
-- **Download:** [`Vaultfolio-macOS.dmg`](https://github.com/PyDeV1OpEr/Vaultfolio/releases/latest/download/Vaultfolio-macOS.dmg) — Vaultfolio **1.1.1**, Apple Silicon (M-series Macs). Intel Macs use [`Vaultfolio-macOS-x64.dmg`](https://github.com/PyDeV1OpEr/Vaultfolio/releases/latest/download/Vaultfolio-macOS-x64.dmg).
+- **Download:** [`Vaultfolio-macOS.dmg`](https://github.com/PyDeV1OpEr/Vaultfolio/releases/latest/download/Vaultfolio-macOS.dmg) — Vaultfolio **1.1.2**, Apple Silicon (M-series Macs). Intel Macs use [`Vaultfolio-macOS-x64.dmg`](https://github.com/PyDeV1OpEr/Vaultfolio/releases/latest/download/Vaultfolio-macOS-x64.dmg).
 - **Install (3 steps):** ① Open the DMG → ② drag **Vaultfolio** onto the **Applications** shortcut → ③ launch Vaultfolio from Applications.
 - The DMG window shows the app and the Applications shortcut side by side; no other files need to be copied.
-- **1.1.1 fixes the blank-screen-after-unlock bug reported on v1.1.0:** entering the correct password/PIN crashed the app shell before the dashboard could render. The dashboard now loads immediately after a successful unlock (verified against the production bundle on first launch, after restart, and after re-locking).
+- **1.1.2 fixes the dead Documents upload button on a fresh vault** (the dialog never opened from the empty state) and removes the Google Fonts CDN dependency, so the interface now renders fully offline from bundled fonts. Full detail in the [changelog](CHANGELOG.md).
+- **v1.1.1 fixed the v1.1.0 unlock blank screen** and v1.1.1+ verify clean: correct password/PIN lands on the dashboard immediately, on first launch, after restart, and after re-locking.
 - **Honest signing status:** these builds are ad-hoc signed and not notarized (no Apple Developer ID certificate was available), so the **first** launch may still show the Gatekeeper warning — Control-click the app, choose **Open**, then it opens normally forever after. The build pipeline already supports one-click Developer ID signing + Apple notarization the moment the repository's `APPLE_*` secrets are configured (see [DESKTOP.md](DESKTOP.md)); those builds will install with no warning at all.
 - Verify your download: SHA-256 checksums are published in the [release notes](https://github.com/PyDeV1OpEr/Vaultfolio/releases/latest).
 
 ## Download the Latest Version
 
-**Truthful builds from current source.** Do not use v1.0.2–v1.0.4 (stale/invalid builds) or v1.1.0 (unlock blank-screen regression — fixed in v1.1.1). **v1.1.1 is the current source** (2026-11-04): it carries everything from v1.1.0 — the Valuation Centre (AI appraisals + manual valuations + append-only history), the premium PIN keypad lock screen, the Documents centre, and the history-aware AI Insights — with the password→dashboard black-screen crash removed.
+**Truthful builds from current source.** Do not use v1.0.2–v1.0.4 (stale/invalid builds) or v1.1.0 (unlock blank-screen regression — fixed in v1.1.1). **v1.1.2 is the current source** (2026-11-04): it carries everything from v1.1.0/v1.1.1 — the Valuation Centre (AI appraisals + manual valuations + append-only history), the premium PIN keypad lock screen, the Documents centre, the history-aware AI Insights, and the unlock crash fix — plus the working Documents upload from a fresh vault and fully bundled fonts.
 
 | Platform | Download |
 | --- | --- |

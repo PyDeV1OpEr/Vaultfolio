@@ -4,6 +4,22 @@ All notable changes to Vaultfolio are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [SemVer](https://semver.org/spec/v2.0.0.html) — MAJOR.MINOR.PATCH, with PATCH reserved for fixes that don't change persisted data or user-visible flows.
 
+## [1.1.2] — 2026-11-04
+
+### Fixed
+- **Documents upload button dead on empty state (release-blocking for the new Documents user)** — with zero documents, the upload button in the empty state set `uploadOpen` on a dialog that sat *below* the early return, so it never mounted: no file picker, no dialog, no error. All overlays (upload/edit/preview/delete) now render in both branches. Verified end-to-end on the production bundle: empty-state button opens the dialog, file attach validates and auto-fills the name, save persists metadata inside the encrypted vault + the binary in the local blob store, and the document survives a full app restart (unlock → Documents → still listed).
+- **Offline rendering hardened — Google Fonts dependency removed** — the UI's Inter typeface used to load from `fonts.googleapis.com`/`fonts.gstatic.com`, so a fresh offline Mac rendered with fallback type until (or unless) the network agreed. Inter (latin 400/500/600/700) is now bundled via `@fontsource/inter`, the CDN links were removed from `index.html`, and the Tauri CSP's remote font/style allowlist was narrowed to `'self'`. Verified on the production bundle: zero Google Fonts requests, fonts resolve from app assets.
+
+### Improved
+- Smooth, reduced-motion-aware page-transition animation on every navigation (wired to the existing `.page-enter` keyframes; zero new animation dependencies).
+- Vitest no longer scans Tauri build output (`src-tauri/target/**`, `dist*/**`) — a stray DMG-staging folder previously made 28 test files from *other applications* (copied into staging during a malformed run) pollute the suite as false failures. The stale staging directory was removed; the real suite is 182/182.
+
+### Tests
+- Full suite: **182/182** passing; `tsc --noEmit` clean; production Vite build clean; production-bundle browser run verified the unlock→dashboard transition and the full Documents upload flow.
+
+### Packaging
+- macOS DMGs remain Developer-ID-unsigned in CI because no Apple credentials are configured (see the 1.0.9 packaging notes below for the exact secret setup that turns the next build into a notarized install experience).
+
 ## [1.1.1] — 2026-11-04
 
 ### Fixed
