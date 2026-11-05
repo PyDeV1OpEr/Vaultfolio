@@ -197,13 +197,13 @@ export function Portfolio() {
         </div>
 
         {/* Grid/List View Toggle */}
-        <div className="flex rounded-lg border border-ink-700 bg-ink-850 p-0.5 overflow-hidden" role="group" aria-label="Display mode">
+        <div className="flex rounded-lg border border-ink-700/80 bg-ink-850 p-0.5 overflow-hidden" role="group" aria-label="Display mode">
           <button
             onClick={() => setView('grid')}
             aria-pressed={view === 'grid'}
             title="Grid view"
-            className={`p-1.5 rounded-md transition-colors duration-120 ${
-              view === 'grid' ? 'bg-ink-750 text-accent shadow-elev-1' : 'text-txt-dim hover:text-txt'
+            className={`p-1.5 rounded-md transition-colors duration-150 ${
+              view === 'grid' ? 'bg-ink-750 text-txt shadow-elev-1' : 'text-txt-dim hover:text-txt'
             }`}
           >
             <LayoutGrid size={15} />
@@ -212,8 +212,8 @@ export function Portfolio() {
             onClick={() => setView('list')}
             aria-pressed={view === 'list'}
             title="List view"
-            className={`p-1.5 rounded-md transition-colors duration-120 ${
-              view === 'list' ? 'bg-ink-750 text-accent shadow-elev-1' : 'text-txt-dim hover:text-txt'
+            className={`p-1.5 rounded-md transition-colors duration-150 ${
+              view === 'list' ? 'bg-ink-750 text-txt shadow-elev-1' : 'text-txt-dim hover:text-txt'
             }`}
           >
             <List size={15} />

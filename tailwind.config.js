@@ -6,30 +6,31 @@ export default {
     extend: {
       colors: {
         ink: {
-          950: '#05060a', // OLED-black app background
-          900: '#0b0f16', // primary card surface
-          875: '#0d1218', // between 900 and 850
-          850: '#0e131c', // raised card / modal footer
-          800: '#121926', // inputs, raised surface
-          750: '#162030', // hover on inputs
-          700: '#1a2232', // borders / dividers
-          650: '#1f2a3e', // hover borders
-          600: '#232d40', // strong borders
-          550: '#2a3650', // subtle accent fill
-          500: '#31405a', // mid-tone text
+          950: '#090a0d', // Deep charcoal / OLED black app background
+          900: '#0f1115', // Primary sidebar & card surface
+          875: '#13161c', // Elevated panels / modal headers
+          850: '#171a22', // Raised card surface / dropdowns
+          800: '#1c212b', // Inputs, buttons, secondary surfaces
+          750: '#222834', // Hover on inputs & cards
+          700: '#28303f', // Subtle hairline borders
+          650: '#313b4d', // Active/hover borders
+          600: '#3b465c', // Strong borders
+          550: '#47546e', // Subtle fill
+          500: '#556482', // Mid-tone text
         },
         txt: {
-          DEFAULT: '#f2f5fa',   // primary text
-          muted: '#8b95a8',     // secondary text
-          dim: '#5d6779',       // tertiary text / placeholders
-          faint: '#3d4858',     // disabled text
+          DEFAULT: '#ededed',   // Soft white primary typography
+          muted: '#9ca3af',     // Muted grey secondary typography
+          dim: '#6b7280',       // Tertiary typography / meta / captions
+          faint: '#374151',     // Disabled / faint borders
         },
         accent: {
-          DEFAULT: '#4d8dff',
-          hover: '#6ba3ff',
-          soft: 'rgba(77,141,255,0.12)',
-          border: 'rgba(77,141,255,0.28)',
-          glow: 'rgba(77,141,255,0.08)',
+          DEFAULT: '#10b981',   // Restrained mint-green accent
+          hover: '#34d399',
+          muted: '#059669',
+          soft: 'rgba(16,185,129,0.10)',
+          border: 'rgba(16,185,129,0.25)',
+          glow: 'rgba(16,185,129,0.04)',
         },
         positive: {
           DEFAULT: '#34d399',
@@ -37,14 +38,14 @@ export default {
           border: 'rgba(52,211,153,0.25)',
         },
         negative: {
-          DEFAULT: '#fb7185',
-          soft: 'rgba(251,113,133,0.10)',
-          border: 'rgba(251,113,133,0.25)',
+          DEFAULT: '#f43f5e',
+          soft: 'rgba(244,63,94,0.10)',
+          border: 'rgba(244,63,94,0.25)',
         },
         warning: {
-          DEFAULT: '#fbbf24',
-          soft: 'rgba(251,191,36,0.10)',
-          border: 'rgba(251,191,36,0.25)',
+          DEFAULT: '#f59e0b',
+          soft: 'rgba(245,158,11,0.10)',
+          border: 'rgba(245,158,11,0.25)',
         },
       },
       fontFamily: {
@@ -66,26 +67,21 @@ export default {
         DEFAULT: '0.5rem', // 8px
         md: '0.625rem',   // 10px
         lg: '0.75rem',    // 12px
-        xl: '1rem',       // 16px
-        '2xl': '1.25rem', // 20px
-        '3xl': '1.5rem',  // 24px
+        xl: '0.875rem',   // 14px
+        '2xl': '1rem',    // 16px
+        '3xl': '1.25rem', // 20px
       },
       boxShadow: {
-        // Elevation system
+        // Subtle, quiet depth - no neon halos
         'elev-0': 'none',
-        'elev-1': '0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3)',
-        'elev-2': '0 4px 12px rgba(0,0,0,0.5), 0 2px 4px rgba(0,0,0,0.3)',
-        'elev-3': '0 8px 24px rgba(0,0,0,0.6), 0 4px 8px rgba(0,0,0,0.35)',
-        'elev-4': '0 16px 40px rgba(0,0,0,0.7), 0 8px 16px rgba(0,0,0,0.4)',
-        // Accent glows
-        'accent-sm': '0 0 0 1px rgba(77,141,255,0.2), 0 0 12px rgba(77,141,255,0.08)',
-        'accent-md': '0 0 0 1px rgba(77,141,255,0.3), 0 0 20px rgba(77,141,255,0.12)',
-        // Inner shadow for inset depth
-        'inner-sm': 'inset 0 1px 3px rgba(0,0,0,0.3)',
-        'inner-md': 'inset 0 2px 6px rgba(0,0,0,0.4)',
-        // Button gloss
-        'btn-primary': '0 1px 0 rgba(255,255,255,0.1) inset, 0 2px 8px rgba(77,141,255,0.25)',
-        'btn-primary-hover': '0 1px 0 rgba(255,255,255,0.12) inset, 0 4px 12px rgba(77,141,255,0.35)',
+        'elev-1': '0 1px 2px rgba(0,0,0,0.5)',
+        'elev-2': '0 4px 12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)',
+        'elev-3': '0 8px 24px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.07)',
+        'elev-4': '0 16px 40px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.08)',
+        // Button gloss / highlights
+        'btn-primary': 'inset 0 1px 0 rgba(255,255,255,0.2), 0 1px 2px rgba(0,0,0,0.4)',
+        'btn-primary-hover': 'inset 0 1px 0 rgba(255,255,255,0.25), 0 2px 6px rgba(0,0,0,0.5)',
+        'btn-secondary': 'inset 0 1px 0 rgba(255,255,255,0.06), 0 1px 2px rgba(0,0,0,0.3)',
       },
       keyframes: {
         fadeIn: {
@@ -137,9 +133,10 @@ export default {
         'fadeUp-4': 'fadeUp 0.22s 0.20s ease-out both',
       },
       transitionTimingFunction: {
-        'spring': 'cubic-bezier(0.34, 1.56, 0.64, 1)',
-        'smooth': 'cubic-bezier(0.4, 0, 0.2, 1)',
-        'swift': 'cubic-bezier(0.55, 0, 0.1, 1)',
+        'default': 'cubic-bezier(0.22, 1, 0.36, 1)',
+        'spring': 'cubic-bezier(0.22, 1, 0.36, 1)',
+        'smooth': 'cubic-bezier(0.22, 1, 0.36, 1)',
+        'swift': 'cubic-bezier(0.22, 1, 0.36, 1)',
       },
       transitionDuration: {
         '80': '80ms',

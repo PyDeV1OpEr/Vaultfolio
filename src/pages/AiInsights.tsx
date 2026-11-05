@@ -371,10 +371,12 @@ function Sparkline({ points, label, unitLabel }: { points: Array<{ x: number; y:
 
 function MetalPill({ m }: { m: MetalInsight }) {
   const I = TREND_ICON[m.direction];
-  const meta = (METAL_META as Record<string, { label?: string; emoji?: string }>)[m.symbol];
+  const meta = (METAL_META as Record<string, { label?: string }>)[m.symbol];
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-ink-700 bg-ink-900 px-2.5 py-1 text-2xs text-txt-muted">
-      {meta?.emoji} {m.symbol}
+    <span className="inline-flex items-center gap-1.5 rounded-md border border-ink-700 bg-ink-900 px-2.5 py-1 text-2xs text-txt-muted">
+      <span className="w-1.5 h-1.5 rounded-full bg-accent/70" />
+      <span className="font-medium text-txt">{m.symbol}</span>
+      {meta?.label && <span className="text-txt-dim">({meta.label})</span>}
       <I size={11} className={TREND_COLOR[m.direction]} />
     </span>
   );

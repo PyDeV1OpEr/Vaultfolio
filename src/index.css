@@ -20,14 +20,14 @@ body {
 /* ─── Scrollbars ─── */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #1f2a3e transparent;
+  scrollbar-color: #28303f transparent;
 }
 *::-webkit-scrollbar {
   width: 5px;
   height: 5px;
 }
 *::-webkit-scrollbar-thumb {
-  background: #232d40;
+  background: #28303f;
   border-radius: 999px;
 }
 *::-webkit-scrollbar-track {
@@ -104,37 +104,12 @@ html {
   letter-spacing: -0.01em;
 }
 
-/* ─── Gradient text ─── */
-.text-gradient-accent {
-  background: linear-gradient(135deg, #4d8dff 0%, #7cc4ff 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* ─── Sidebar active indicator ─── */
-.nav-active-indicator {
-  position: relative;
-}
-.nav-active-indicator::before {
-  content: '';
-  position: absolute;
-  left: -8px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 3px;
-  height: 16px;
-  background: theme('colors.accent.DEFAULT');
-  border-radius: 999px;
-}
-
-/* ─── Card hover lift ─── */
+/* ─── Card hover lift (subtle, quiet surface change) ─── */
 .card-lift {
-  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  transition: transform 0.15s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.15s ease, background-color 0.15s ease;
 }
 .card-lift:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
 }
 
 /* ─── Positive/negative text colors ─── */
@@ -144,24 +119,25 @@ html {
 
 /* ─── Section divider ─── */
 .section-divider {
-  @apply border-t border-ink-700/70 my-5;
+  @apply border-t border-ink-700/60 my-5;
 }
 
 /* ─── Input focus glow ─── */
 input:focus,
 select:focus,
 textarea:focus {
-  box-shadow: 0 0 0 3px rgba(77, 141, 255, 0.08);
+  border-color: theme('colors.accent.DEFAULT');
+  box-shadow: 0 0 0 1px theme('colors.accent.DEFAULT');
 }
 
 /* ─── Modal backdrop ─── */
 .modal-backdrop {
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 
 /* ─── Custom selection color ─── */
 ::selection {
-  background: rgba(77, 141, 255, 0.25);
-  color: #f2f5fa;
+  background: rgba(16, 185, 129, 0.25);
+  color: #ededed;
 }

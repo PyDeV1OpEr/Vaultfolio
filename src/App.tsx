@@ -1,5 +1,6 @@
 import { Component, useEffect, type ErrorInfo, type ReactNode } from 'react';
 import { Route, Routes, Link as RouterLink } from 'react-router-dom';
+import { AlertTriangle } from 'lucide-react';
 import { Button } from './components/ui';
 import { AppLayout } from './components/AppLayout';
 import { Overview } from './pages/Overview';
@@ -21,6 +22,13 @@ import { EmptyState } from './components/ui';
 import { Link } from 'react-router-dom';
 
 import { Navigate } from 'react-router-dom';
+import { Intelligence } from './pages/Intelligence/Workspace';
+import { IntelImport, IntelDatasets, IntelDatasetDetail, IntelSamples } from './pages/Intelligence/Datasets';
+import { IntelTrain } from './pages/Intelligence/Train';
+import { IntelModels, IntelModelDetail } from './pages/Intelligence/Models';
+import { IntelPredict } from './pages/Intelligence/Predict';
+import { IntelHistory } from './pages/Intelligence/History';
+import { IntelDocs } from './pages/Intelligence/Docs';
 
 const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 
@@ -54,8 +62,8 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
     return (
       <div className="min-h-screen bg-ink-950 text-txt flex items-center justify-center px-4 py-10">
         <div className="w-full max-w-md text-center">
-          <div className="w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center mx-auto mb-4">
-            <span className="text-2xl" role="img" aria-label="Warning">⚠️</span>
+          <div className="w-12 h-12 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mx-auto mb-4 text-rose-400">
+            <AlertTriangle size={24} />
           </div>
           <h1 className="text-lg font-semibold tracking-tight">Vaultfolio hit an unexpected error</h1>
           <p className="text-sm text-txt-muted mt-2">
@@ -133,6 +141,17 @@ export default function App() {
         <Route path="/ai-insights" element={<AiInsights />} />
         <Route path="/reports" element={<ReportsScreen />} />
         <Route path="/documents" element={<Documents />} />
+        <Route path="/intelligence" element={<Intelligence />} />
+        <Route path="/intelligence/import" element={<IntelImport />} />
+        <Route path="/intelligence/datasets" element={<IntelDatasets />} />
+        <Route path="/intelligence/datasets/:id" element={<IntelDatasetDetail />} />
+        <Route path="/intelligence/samples" element={<IntelSamples />} />
+        <Route path="/intelligence/train" element={<IntelTrain />} />
+        <Route path="/intelligence/models" element={<IntelModels />} />
+        <Route path="/intelligence/models/:id" element={<IntelModelDetail />} />
+        <Route path="/intelligence/predict" element={<IntelPredict />} />
+        <Route path="/intelligence/history" element={<IntelHistory />} />
+        <Route path="/intelligence/docs/*" element={<IntelDocs />} />
         <Route path="/settings" element={<Settings />} />
         <Route
           path="*"

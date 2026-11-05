@@ -1,0 +1,28 @@
+{
+  "samples": [
+    {
+      "file": "sample_classification_gems.csv",
+      "title": "Gem quality classification",
+      "task": "classification",
+      "description": "120 labelled gemstone records — carat, colour grade, clarity and lab result (premium | standard). Train a classifier to grade new stones.",
+      "rows": 120,
+      "license": "CC0 1.0 (generated for Vaultfolio, no third-party data)"
+    },
+    {
+      "file": "sample_regression_prices.csv",
+      "title": "Gold ornament price regression",
+      "task": "regression",
+      "description": "160 valuation records — weight, purity, brand premium, craftsmanship score → market price in LKR. Train a regressor to estimate prices.",
+      "rows": 160,
+      "license": "CC0 1.0 (generated for Vaultfolio, no third-party data)"
+    },
+    {
+      "file": "sample_clustering_customers.csv",
+      "title": "Customer grouping",
+      "task": "clustering",
+      "description": "150 customer records — spend, visit frequency, recency and basket size. Discover natural customer groups with K-Means.",
+      "rows": 150,
+      "license": "CC0 1.0 (generated for Vaultfolio, no third-party data)"
+    }
+  ]
+}

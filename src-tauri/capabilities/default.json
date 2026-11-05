@@ -1,7 +1,10 @@
 {
   "$schema": "gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Default capability — Vaultfolio's UI is a plain SPA and invokes no Tauri commands; this grants only the core defaults.",
+  "description": "Vaultfolio capabilities: core defaults for the plain SPA plus the explicit Intelligence permissions (native CSV file dialog, Tauri event progress listening).",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": [
+    "core:default",
+    "dialog:default"
+  ]
 }

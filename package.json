@@ -1,7 +1,7 @@
 {
   "name": "vaultfolio",
   "private": true,
-  "version": "1.1.2",
+  "version": "1.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,14 +10,18 @@
     "preview": "vite preview",
     "test": "vitest run",
     "desktop:dev": "tauri dev",
-    "desktop:build:macos": "tauri build --config src-tauri/tauri.macos.json",
-    "desktop:build:windows": "tauri build --config src-tauri/tauri.windows.json"
+    "desktop:build:macos": "npm run ml-engine:runtime && tauri build --config src-tauri/tauri.macos.json",
+    "desktop:build:windows": "tauri build --config src-tauri/tauri.windows.json",
+    "ml-engine:runtime": "bash scripts/build-ml-runtime.sh --arch aarch64-apple-darwin",
+    "ml-engine:test": "scripts/ml-engine-tests.sh"
   },
   "dependencies": {
     "@fontsource/inter": "^5.3.0",
     "@noble/ciphers": "^2.4.0",
     "@noble/hashes": "^2.4.0",
     "@supabase/supabase-js": "^2.45.4",
+    "@tauri-apps/api": "2",
+    "@tauri-apps/plugin-dialog": "2",
     "lucide-react": "^0.454.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

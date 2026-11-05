@@ -8,38 +8,38 @@ import { formatMoney, relativeTime } from '../lib/money';
 const CATEGORY_COLORS: Record<AssetCategory, { icon: string; bg: string; border: string }> = {
   gold_silver: {
     icon: 'text-amber-400',
-    bg: 'bg-amber-400/10',
-    border: 'border-amber-400/20',
+    bg: 'bg-ink-800',
+    border: 'border-ink-700/80',
   },
   gems_jewelry: {
     icon: 'text-emerald-400',
-    bg: 'bg-emerald-400/10',
-    border: 'border-emerald-400/20',
+    bg: 'bg-ink-800',
+    border: 'border-ink-700/80',
   },
   watches: {
     icon: 'text-sky-400',
-    bg: 'bg-sky-400/10',
-    border: 'border-sky-400/20',
+    bg: 'bg-ink-800',
+    border: 'border-ink-700/80',
   },
   land_property: {
     icon: 'text-teal-400',
-    bg: 'bg-teal-400/10',
-    border: 'border-teal-400/20',
+    bg: 'bg-ink-800',
+    border: 'border-ink-700/80',
   },
   cars: {
-    icon: 'text-blue-400',
-    bg: 'bg-blue-400/10',
-    border: 'border-blue-400/20',
+    icon: 'text-slate-300',
+    bg: 'bg-ink-800',
+    border: 'border-ink-700/80',
   },
   motorcycles: {
     icon: 'text-indigo-400',
-    bg: 'bg-indigo-400/10',
-    border: 'border-indigo-400/20',
+    bg: 'bg-ink-800',
+    border: 'border-ink-700/80',
   },
   other: {
-    icon: 'text-violet-400',
-    bg: 'bg-violet-400/10',
-    border: 'border-violet-400/20',
+    icon: 'text-txt-muted',
+    bg: 'bg-ink-800',
+    border: 'border-ink-700/80',
   },
 };
 
@@ -71,16 +71,16 @@ export function AssetCard({
       to={`/portfolio/${asset.id}`}
       className={`
         group relative block bg-ink-900 border border-ink-700/80 rounded-xl p-4
-        hover:border-ink-600 hover:bg-ink-850/80 card-lift transition-all duration-150
+        hover:border-ink-650 hover:bg-ink-850/80 card-lift transition-colors duration-150
         ${asset.status === 'sold' ? 'opacity-65' : ''}
       `}
     >
       {/* Top Header */}
       <div className="flex items-start gap-3">
         <span
-          className={`w-10 h-10 rounded-xl ${colors.bg} ${colors.border} border flex items-center justify-center shrink-0 ${colors.icon} transition-transform duration-120 group-hover:scale-105`}
+          className={`w-9 h-9 rounded-lg ${colors.bg} ${colors.border} border flex items-center justify-center shrink-0 ${colors.icon}`}
         >
-          <Icon size={19} />
+          <Icon size={18} />
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
@@ -88,7 +88,7 @@ export function AssetCard({
               {asset.name}
             </p>
             {asset.quantity && asset.quantity > 1 && (
-              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-ink-800 text-txt-muted border border-ink-700 shrink-0">
+              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-ink-800 text-txt-muted border border-ink-700/70 shrink-0">
                 ×{asset.quantity}
               </span>
             )}

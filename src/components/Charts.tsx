@@ -18,22 +18,22 @@ import { categoryMeta } from '../lib/categories';
 import { compactFormat } from '../lib/money';
 
 export const CHART_PALETTE = [
-  '#4d8dff', // electric blue
-  '#38bdf8', // sky
-  '#34d399', // emerald
-  '#fbbf24', // amber
-  '#a78bfa', // violet
-  '#fb7185', // rose
+  '#10b981', // restrained mint
+  '#06b6d4', // cyan
+  '#6366f1', // indigo
+  '#f59e0b', // amber
+  '#ec4899', // rose pink
+  '#8b5cf6', // purple
   '#64748b', // slate
 ];
 
 const TOOLTIP_STYLE = {
-  backgroundColor: '#0e131c',
-  borderColor: '#232d40',
-  borderRadius: '12px',
-  boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+  backgroundColor: '#13161c',
+  borderColor: '#28303f',
+  borderRadius: '10px',
+  boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
   fontSize: '12px',
-  color: '#f2f5fa',
+  color: '#ededed',
   padding: '8px 12px',
 };
 
@@ -101,15 +101,15 @@ export function CategoryBarChart({
     <div className="h-[250px] w-full" role="img" aria-label="Total value by asset category">
       <ResponsiveContainer>
         <BarChart data={rows} margin={{ top: 12, right: 12, bottom: 4, left: 4 }}>
-          <CartesianGrid stroke="#1a2232" strokeDasharray="3 3" vertical={false} />
+          <CartesianGrid stroke="#232936" strokeDasharray="3 3" vertical={false} />
           <XAxis
             dataKey="name"
-            tick={{ fill: '#8b95a8', fontSize: 11 }}
+            tick={{ fill: '#9ca3af', fontSize: 11 }}
             tickLine={false}
-            axisLine={{ stroke: '#232d40' }}
+            axisLine={{ stroke: '#28303f' }}
           />
           <YAxis
-            tick={{ fill: '#8b95a8', fontSize: 11 }}
+            tick={{ fill: '#9ca3af', fontSize: 11 }}
             tickLine={false}
             axisLine={false}
             width={58}
@@ -150,29 +150,29 @@ export function TopAssetsBarChart({
     <div className="h-[250px] w-full" role="img" aria-label="Individual asset values">
       <ResponsiveContainer>
         <BarChart layout="vertical" data={rows} margin={{ top: 8, right: 16, bottom: 4, left: 12 }}>
-          <CartesianGrid stroke="#1a2232" strokeDasharray="3 3" horizontal={false} />
+          <CartesianGrid stroke="#232936" strokeDasharray="3 3" horizontal={false} />
           <XAxis
             type="number"
-            tick={{ fill: '#8b95a8', fontSize: 11 }}
+            tick={{ fill: '#9ca3af', fontSize: 11 }}
             tickLine={false}
-            axisLine={{ stroke: '#232d40' }}
+            axisLine={{ stroke: '#28303f' }}
             tickFormatter={(v: number) => compactFormat(v)}
           />
           <YAxis
             type="category"
             dataKey="name"
-            tick={{ fill: '#8b95a8', fontSize: 11 }}
+            tick={{ fill: '#9ca3af', fontSize: 11 }}
             tickLine={false}
             axisLine={false}
             width={90}
           />
           <Tooltip
             contentStyle={TOOLTIP_STYLE}
-            itemStyle={{ color: '#f2f5fa' }}
+            itemStyle={{ color: '#ededed' }}
             formatter={(v: number) => [`${displayCurrency} ${compactFormat(v)}`, 'Estimated Value']}
             labelFormatter={(_, arr) => arr[0]?.payload?.fullName ?? ''}
           />
-          <Bar dataKey="value" fill="#4d8dff" radius={[0, 6, 6, 0]} isAnimationActive={true} />
+          <Bar dataKey="value" fill="#10b981" radius={[0, 6, 6, 0]} isAnimationActive={true} />
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -191,15 +191,15 @@ export function CostVsValueChart({
     <div className="h-[250px] w-full" role="img" aria-label="Purchase cost vs current value comparison">
       <ResponsiveContainer>
         <BarChart data={data} margin={{ top: 12, right: 12, bottom: 4, left: 4 }}>
-          <CartesianGrid stroke="#1a2232" strokeDasharray="3 3" vertical={false} />
+          <CartesianGrid stroke="#232936" strokeDasharray="3 3" vertical={false} />
           <XAxis
             dataKey="label"
-            tick={{ fill: '#8b95a8', fontSize: 11 }}
+            tick={{ fill: '#9ca3af', fontSize: 11 }}
             tickLine={false}
-            axisLine={{ stroke: '#232d40' }}
+            axisLine={{ stroke: '#28303f' }}
           />
           <YAxis
-            tick={{ fill: '#8b95a8', fontSize: 11 }}
+            tick={{ fill: '#9ca3af', fontSize: 11 }}
             tickLine={false}
             axisLine={false}
             width={58}
@@ -207,7 +207,7 @@ export function CostVsValueChart({
           />
           <Tooltip
             contentStyle={TOOLTIP_STYLE}
-            itemStyle={{ color: '#f2f5fa' }}
+            itemStyle={{ color: '#ededed' }}
             formatter={(v: number, name: string) => [
               `${displayCurrency} ${compactFormat(v)}`,
               name === 'costLkr' ? 'Purchase Cost' : 'Current Value',
@@ -222,8 +222,8 @@ export function CostVsValueChart({
               </span>
             )}
           />
-          <Bar dataKey="costLkr" name="costLkr" fill="#5d6779" radius={[4, 4, 0, 0]} isAnimationActive={true} />
-          <Bar dataKey="valueLkr" name="valueLkr" fill="#4d8dff" radius={[4, 4, 0, 0]} isAnimationActive={true} />
+          <Bar dataKey="costLkr" name="costLkr" fill="#4b5563" radius={[4, 4, 0, 0]} isAnimationActive={true} />
+          <Bar dataKey="valueLkr" name="valueLkr" fill="#10b981" radius={[4, 4, 0, 0]} isAnimationActive={true} />
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -247,19 +247,19 @@ export function HistoryLine({ data }: { data: { date: string; valueLkr: number }
         <AreaChart data={rows} margin={{ top: 12, right: 12, bottom: 4, left: 8 }}>
           <defs>
             <linearGradient id="valGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#4d8dff" stopOpacity={0.25} />
-              <stop offset="95%" stopColor="#4d8dff" stopOpacity={0.0} />
+              <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
+              <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
             </linearGradient>
           </defs>
-          <CartesianGrid stroke="#1a2232" strokeDasharray="3 3" vertical={false} />
+          <CartesianGrid stroke="#232936" strokeDasharray="3 3" vertical={false} />
           <XAxis
             dataKey="date"
-            tick={{ fill: '#8b95a8', fontSize: 11 }}
+            tick={{ fill: '#9ca3af', fontSize: 11 }}
             tickLine={false}
-            axisLine={{ stroke: '#232d40' }}
+            axisLine={{ stroke: '#28303f' }}
           />
           <YAxis
-            tick={{ fill: '#8b95a8', fontSize: 11 }}
+            tick={{ fill: '#9ca3af', fontSize: 11 }}
             tickLine={false}
             axisLine={false}
             width={58}
@@ -267,14 +267,14 @@ export function HistoryLine({ data }: { data: { date: string; valueLkr: number }
           />
           <Tooltip
             contentStyle={TOOLTIP_STYLE}
-            itemStyle={{ color: '#f2f5fa' }}
+            itemStyle={{ color: '#ededed' }}
             formatter={(v: number) => [`LKR ${v.toLocaleString('en-US')}`, 'Recorded Value']}
           />
           <Area
             type="monotone"
             dataKey="value"
-            stroke="#4d8dff"
-            strokeWidth={2.5}
+            stroke="#10b981"
+            strokeWidth={2}
             fillOpacity={1}
             fill="url(#valGrad)"
             isAnimationActive={true}

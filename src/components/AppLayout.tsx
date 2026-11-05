@@ -1,8 +1,10 @@
 import { NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
+  BrainCircuit,
   Sparkles,
-  BarChart3,
+  ChartCandlestick,
+  ChartNoAxesCombined,
   CheckCircle2,
   FileText,
   Files,
@@ -14,7 +16,6 @@ import {
   Plus,
   Settings as SettingsIcon,
   Shield,
-  TrendingUp,
   Vault,
   Wallet,
   X,
@@ -28,11 +29,15 @@ import { formatMoney } from '../lib/money';
 const PORTFOLIO_NAV = [
   { to: '/', label: 'Overview', icon: LayoutDashboard },
   { to: '/portfolio', label: 'My Assets', icon: Wallet },
-  { to: '/market-watch', label: 'Market Watch', icon: TrendingUp },
+  { to: '/market-watch', label: 'Market Watch', icon: ChartCandlestick },
   { to: '/reports', label: 'Reports', icon: FileText },
-  { to: '/insights', label: 'Insights', icon: BarChart3 },
+  { to: '/insights', label: 'Insights', icon: ChartNoAxesCombined },
   { to: '/ai-insights', label: 'AI Insights', icon: Sparkles },
   { to: '/documents', label: 'Documents', icon: Files },
+];
+
+const INTELLIGENCE_NAV = [
+  { to: '/intelligence', label: 'Intelligence', icon: BrainCircuit },
 ];
 
 const PREFERENCES_NAV = [
@@ -184,26 +189,26 @@ function SidebarContent({ mode, onNavClick }: { mode: string; onNavClick: () => 
   return (
     <div className="flex flex-col h-full select-none">
       {/* Brand Header */}
-      <div className="p-5 pb-4 flex items-center gap-3 border-b border-ink-700/70">
-        <span className="w-9 h-9 rounded-xl bg-accent/15 border border-accent/30 flex items-center justify-center shrink-0 shadow-accent-sm">
-          <Vault size={18} className="text-accent" />
+      <div className="p-4 sm:p-5 pb-4 flex items-center gap-3 border-b border-ink-700/60">
+        <span className="w-9 h-9 rounded-xl bg-ink-800 border border-ink-700/80 flex items-center justify-center shrink-0">
+          <Vault size={17} className="text-accent" />
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             <span className="font-semibold text-sm tracking-tight text-txt">Vaultfolio</span>
-            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-ink-800 text-txt-dim border border-ink-700">
-              v1.0.6
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-ink-800 text-txt-dim border border-ink-700/70">
+              v1.2.0
             </span>
           </div>
           <p className="text-2xs text-txt-dim mt-0.5 flex items-center gap-1">
-            <Shield size={10} className="text-emerald-400" />
+            <Shield size={10} className="text-accent" />
             <span>Encrypted Local Vault</span>
           </p>
         </div>
       </div>
 
       {/* Mini Portfolio Summary Card */}
-      <div className="p-3 mx-3 my-3 rounded-xl border border-ink-700/80 bg-gradient-to-b from-ink-850 to-ink-900/90 shadow-elev-1">
+      <div className="p-3 mx-3 my-3 rounded-xl border border-ink-700/80 bg-ink-875 shadow-elev-1">
         <div className="flex items-center justify-between mb-1">
           <span className="text-2xs font-medium uppercase tracking-wider text-txt-dim">
             Total Estimated
@@ -262,14 +267,42 @@ function SidebarContent({ mode, onNavClick }: { mode: string; onNavClick: () => 
                   end={n.to === '/'}
                   onClick={onNavClick}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-medium transition-all duration-120 ${
+                    `flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors duration-150 ${
                       isActive
-                        ? 'bg-accent/15 text-accent border border-accent/25 shadow-accent-sm'
-                        : 'text-txt-muted hover:text-txt hover:bg-ink-800/60'
+                        ? 'bg-ink-800 text-txt border border-ink-700/80 shadow-elev-1'
+                        : 'text-txt-muted hover:text-txt hover:bg-ink-850/80'
                     }`
                   }
                 >
-                  <Icon size={16} className="shrink-0" />
+                  <Icon size={16} className="shrink-0 text-txt-muted" />
+                  <span className="truncate">{n.label}</span>
+                </NavLink>
+              );
+            })}
+          </nav>
+        </div>
+
+        <div>
+          <p className="px-3 text-2xs font-semibold uppercase tracking-wider text-txt-dim mb-1.5">
+            Intelligence
+          </p>
+          <nav className="flex flex-col gap-0.5">
+            {INTELLIGENCE_NAV.map((n) => {
+              const Icon = n.icon;
+              return (
+                <NavLink
+                  key={n.to}
+                  to={n.to}
+                  onClick={onNavClick}
+                  className={({ isActive }) =>
+                    `flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors duration-150 ${
+                      isActive
+                        ? 'bg-ink-800 text-txt border border-ink-700/80 shadow-elev-1'
+                        : 'text-txt-muted hover:text-txt hover:bg-ink-850/80'
+                    }`
+                  }
+                >
+                  <Icon size={16} className="shrink-0 text-txt-muted" />
                   <span className="truncate">{n.label}</span>
                 </NavLink>
               );
@@ -290,14 +323,14 @@ function SidebarContent({ mode, onNavClick }: { mode: string; onNavClick: () => 
                   to={n.to}
                   onClick={onNavClick}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-medium transition-all duration-120 ${
+                    `flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors duration-150 ${
                       isActive
-                        ? 'bg-accent/15 text-accent border border-accent/25 shadow-accent-sm'
-                        : 'text-txt-muted hover:text-txt hover:bg-ink-800/60'
+                        ? 'bg-ink-800 text-txt border border-ink-700/80 shadow-elev-1'
+                        : 'text-txt-muted hover:text-txt hover:bg-ink-850/80'
                     }`
                   }
                 >
-                  <Icon size={16} className="shrink-0" />
+                  <Icon size={16} className="shrink-0 text-txt-muted" />
                   <span className="truncate">{n.label}</span>
                 </NavLink>
               );
@@ -307,13 +340,13 @@ function SidebarContent({ mode, onNavClick }: { mode: string; onNavClick: () => 
       </div>
 
       {/* Vault Security / Account Footer */}
-      <div className="p-3 border-t border-ink-700/70 bg-ink-950/40">
-        <div className="rounded-lg border border-ink-700 bg-ink-900/90 p-2.5 text-xs">
+      <div className="p-3 border-t border-ink-700/60 bg-ink-950/40">
+        <div className="rounded-lg border border-ink-700/70 bg-ink-900/90 p-2.5 text-xs">
           <div className="flex items-center justify-between mb-0.5">
             <span className="font-medium text-txt truncate max-w-[130px]">
               {settings.ownerName || profileName || 'Vault Owner'}
             </span>
-            <span className="text-[10px] text-emerald-400 font-mono">AES-GCM</span>
+            <span className="text-[10px] text-accent font-mono">AES-GCM</span>
           </div>
           <p className="text-2xs text-txt-dim">Decrypted in-memory only</p>
         </div>

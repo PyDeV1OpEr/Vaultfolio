@@ -207,13 +207,15 @@ export function UnlockScreen() {
       <style>{UNLOCK_CSS}</style>
       <div className="w-full max-w-sm">
 
-        {/* ── Branding + greeting ── */}
+        {/* ── Branding + context ── */}
         <div className="flex flex-col items-center mb-8 vf-rise">
-          <span className="w-14 h-14 rounded-2xl bg-accent/15 border border-accent/25 flex items-center justify-center mb-3">
-            <Vault size={26} className="text-accent" />
+          <span className="w-12 h-12 rounded-xl bg-ink-900 border border-ink-700/80 flex items-center justify-center mb-3">
+            <Vault size={22} className="text-accent" />
           </span>
-          <span className="text-xl font-semibold tracking-tight">Vaultfolio</span>
-          <span className="text-xs text-txt-dim mt-1.5">{greet(settings.ownerName)}</span>
+          <span className="text-xl font-semibold tracking-tight text-txt">Vaultfolio</span>
+          <span className="text-xs text-txt-dim mt-1.5">
+            {settings.ownerName ? `Encrypted vault · ${settings.ownerName}` : 'Encrypted local vault'}
+          </span>
         </div>
 
         {/* ── PIN keypad screen ── */}
@@ -235,8 +237,8 @@ export function UnlockScreen() {
                   key={i}
                   className={
                     filled
-                      ? `w-3.5 h-3.5 rounded-full bg-accent shadow-[0_0_10px_rgba(212,175,55,0.45)] ${i === pin.length - 1 ? 'vf-dot-pop' : ''}`
-                      : 'w-3.5 h-3.5 rounded-full border border-ink-600'
+                      ? `w-3 h-3 rounded-full bg-accent ${i === pin.length - 1 ? 'vf-dot-pop' : ''}`
+                      : 'w-3 h-3 rounded-full border border-ink-650'
                   }
                 />
               ))}

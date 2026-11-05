@@ -208,8 +208,8 @@ export function Insights() {
                   onClick={() => setPeriod(p.id)}
                   className={`px-2.5 py-1 rounded-md border text-2xs font-medium transition-colors ${
                     period === p.id
-                      ? 'border-accent/50 bg-accent/15 text-accent'
-                      : 'border-ink-800 text-txt-muted hover:border-ink-700 hover:text-txt'
+                      ? 'border-accent/40 bg-accent-soft text-accent'
+                      : 'border-ink-750 text-txt-muted hover:border-ink-700 hover:text-txt'
                   }`}
                 >
                   {p.shortLabel}

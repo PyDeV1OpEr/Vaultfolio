@@ -82,12 +82,12 @@ const METAL_COLORS: Record<MetalCode, string> = {
 };
 
 const CHART_TOOLTIP_STYLE = {
-  backgroundColor: '#0e131c',
-  borderColor: '#232d40',
+  backgroundColor: '#13161c',
+  borderColor: '#28303f',
   borderRadius: '10px',
-  boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+  boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
   fontSize: '12px',
-  color: '#f2f5fa',
+  color: '#ededed',
   padding: '8px 12px',
 };
 
@@ -708,7 +708,7 @@ function PriceChart({
             }}
             formatter={(v: number, _: string, item: any) => [
               `$${v.toFixed(4)} USD / ${METAL_META[metal].displayUnit}`,
-              `${item.payload?.fresh ? '✓' : '⚠'} ${providerLabel(String(item.payload?.provider ?? ''))}`,
+              `${providerLabel(String(item.payload?.provider ?? ''))} · ${item.payload?.fresh ? 'Fresh' : 'Delayed'}`,
             ]}
           />
           {/* Reference line at the most recent price for visual anchor */}

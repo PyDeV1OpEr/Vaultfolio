@@ -9,26 +9,26 @@ type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'outline';
 type ButtonSize = 'xs' | 'sm' | 'md' | 'lg';
 
 const BTN_BASE =
-  'inline-flex items-center justify-center gap-2 font-medium transition-all duration-120 disabled:opacity-50 disabled:cursor-not-allowed select-none';
+  'inline-flex items-center justify-center gap-2 font-medium transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
 
 const BTN_SIZES: Record<ButtonSize, string> = {
-  xs: 'h-7 px-2.5 text-2xs rounded-md gap-1.5',
+  xs: 'h-7 px-2.5 text-xs rounded-md gap-1.5',
   sm: 'h-8 px-3 text-xs rounded-lg gap-1.5',
-  md: 'h-9 px-4 text-sm rounded-lg gap-2',
-  lg: 'h-11 px-5 text-base rounded-xl gap-2.5',
+  md: 'h-9 px-3.5 text-sm rounded-lg gap-2',
+  lg: 'h-10 px-4 text-sm rounded-lg gap-2.5',
 };
 
 const BTN_VARIANTS: Record<ButtonVariant, string> = {
   primary:
-    'bg-accent text-white hover:bg-accent-hover active:scale-[0.97] shadow-btn-primary hover:shadow-btn-primary-hover',
+    'bg-accent text-ink-950 font-semibold hover:bg-accent-hover active:scale-[0.98] shadow-btn-primary hover:shadow-btn-primary-hover border border-accent/30',
   secondary:
-    'bg-ink-800 text-txt border border-ink-700 hover:bg-ink-750 hover:border-ink-650 active:scale-[0.97]',
+    'bg-ink-800 text-txt border border-ink-700/80 hover:bg-ink-750 hover:border-ink-650 active:scale-[0.98] shadow-btn-secondary',
   ghost:
-    'text-txt-muted hover:text-txt hover:bg-ink-800/70 active:bg-ink-800',
+    'text-txt-muted hover:text-txt hover:bg-ink-800/80 active:bg-ink-800 active:scale-[0.98]',
   danger:
-    'bg-negative-soft text-negative border border-negative-border hover:bg-negative/20 active:scale-[0.97]',
+    'bg-negative-soft text-negative border border-negative-border hover:bg-negative/20 active:scale-[0.98]',
   outline:
-    'text-accent border border-accent-border hover:bg-accent-soft active:scale-[0.97]',
+    'text-txt border border-ink-700 hover:bg-ink-800/60 hover:border-ink-650 active:scale-[0.98]',
 };
 
 export function Button({
@@ -452,22 +452,24 @@ export function StatCard({
   const valueColor =
     tone === 'positive' ? 'text-positive' : tone === 'negative' ? 'text-negative' : 'text-txt';
   return (
-    <Card className="p-4">
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-xs font-medium text-txt-muted leading-none">{label}</p>
-        {icon && (
-          <span className="w-7 h-7 rounded-lg bg-ink-800 border border-ink-700 flex items-center justify-center text-txt-dim">
-            {icon}
-          </span>
-        )}
+    <Card className="p-4 sm:p-5 flex flex-col justify-between">
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-xs font-medium text-txt-muted leading-none">{label}</p>
+          {icon && (
+            <span className="w-7 h-7 rounded-md bg-ink-800 border border-ink-700/80 flex items-center justify-center text-txt-dim">
+              {icon}
+            </span>
+          )}
+        </div>
+        <p
+          className={`text-2xl font-semibold tnum value-display leading-tight tracking-tight ${valueColor}`}
+        >
+          {value || <span className="text-txt-dim font-normal text-base">—</span>}
+        </p>
       </div>
-      <p
-        className={`text-xl font-semibold tnum value-display leading-none tracking-tight ${valueColor}`}
-      >
-        {value || <span className="text-txt-dim font-normal text-base">—</span>}
-      </p>
       {sub && (
-        <p className="text-2xs text-txt-dim mt-2 leading-relaxed">{sub}</p>
+        <p className="text-2xs text-txt-dim mt-2.5 leading-relaxed">{sub}</p>
       )}
     </Card>
   );
@@ -642,11 +644,11 @@ export function Pill({
       onClick={onClick}
       aria-pressed={active}
       className={`
-        shrink-0 inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5
-        text-xs font-medium transition-all duration-120
+        shrink-0 inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5
+        text-xs font-medium transition-colors duration-150
         ${active
-          ? 'bg-accent-soft border-accent-border text-accent'
-          : 'bg-ink-900 border-ink-700 text-txt-muted hover:text-txt hover:border-ink-600 hover:bg-ink-800/50'}
+          ? 'bg-ink-800 text-txt border-ink-650 shadow-elev-1'
+          : 'bg-ink-900 border-ink-750 text-txt-muted hover:text-txt hover:border-ink-700 hover:bg-ink-850'}
       `}
     >
       {children}

@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Vaultfolio",
-  "version": "1.1.2",
+  "version": "1.2.0",
   "identifier": "com.vaultfolio.desktop",
   "build": {
     "frontendDist": "../dist",
@@ -49,6 +49,13 @@
     "copyright": "© 2026 Vaultfolio",
     "shortDescription": "Private wealth tracking for physical assets",
     "longDescription": "Vaultfolio helps you track, organize and estimate the value of physical assets — gold & silver, gems & jewelry, watches, land & property, cars, motorcycles and more. One private portfolio, transparent valuations, clearly-labeled data sources.",
+    "resources": {
+      "../ml-engine/runtime": "ml-engine/runtime",
+      "../ml-engine/service": "ml-engine/service",
+      "../ml-engine/samples": "ml-engine/samples",
+      "../ml-engine/documentation": "ml-engine/documentation",
+      "../ml-engine/licenses": "ml-engine/licenses"
+    },
     "macOS": {
       "minimumSystemVersion": "10.15"
     },

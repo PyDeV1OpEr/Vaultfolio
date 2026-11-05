@@ -184,7 +184,7 @@ export function MarketPage() {
           subtitle="Untouched for 6+ months, or never valued. Stale numbers shouldn't be silently trusted."
         />
         {staleAssets.length === 0 ? (
-          <p className="px-5 pb-5 text-sm text-txt-muted">Every active asset has a recent valuation. 👍</p>
+          <p className="px-5 pb-5 text-sm text-txt-muted">Every active asset has an up-to-date recorded valuation.</p>
         ) : (
           <ul className="px-5 pb-5 divide-y divide-ink-800">
             {staleAssets.map(({ a, resolved, staleness }) => {

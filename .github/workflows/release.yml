@@ -18,13 +18,10 @@ defaults:
     shell: bash
 
 env:
-  # Canonical artifact names. README download links must match these
-  # exactly. Build steps copy native Tauri output to these names. The
-  # flagship macOS download is the Apple Silicon build under the plain
-  # Vaultfolio-macOS.dmg name; Intel keeps an explicit -x64 suffix.
-  MAC_ARM64_ARTIFACT: Vaultfolio-macOS.dmg
-  MAC_X64_ARTIFACT: Vaultfolio-macOS-x64.dmg
-  WIN_X64_ARTIFACT: Vaultfolio-Windows-x64-setup.exe
+  # Canonical artifact names. README download links must match these exactly.
+  MAC_ARM64_ARTIFACT: Vaultfolio-macOS-Apple-Silicon.dmg
+  MAC_X64_ARTIFACT: Vaultfolio-macOS-Intel.dmg
+  WIN_X64_ARTIFACT: Vaultfolio-Windows-Setup.exe
 
 jobs:
   quality-gate:
@@ -57,63 +54,24 @@ jobs:
 
           | Platform | File |
           | --- | --- |
-          | macOS — Apple Silicon (M-series) | `Vaultfolio-macOS.dmg` |
-          | macOS — Intel | `Vaultfolio-macOS-x64.dmg` |
-          | Windows 10/11 — x64 | `Vaultfolio-Windows-x64-setup.exe` |
+          | macOS — Apple Silicon (M-series) | `Vaultfolio-macOS-Apple-Silicon.dmg` |
+          | Windows | `Vaultfolio-Windows-Setup.exe` |
 
           ## What's new in this release
-          - **Fixed: blank screen after unlocking (v1.1.0 regression)** —
-            entering a correct password/PIN crashed the app shell before the
-            dashboard rendered (React "fewer hooks than expected" in the
-            v1.1.0 keypad lock screen). Unlock now lands directly on the
-            Overview dashboard; verified against the production bundle.
-          - **Error boundary** — any future render failure now shows an honest
-            error screen (Retry + diagnostics) instead of an empty window.
-          - Roomy 1.1.0 features carried in fully: **Valuation Centre** (AI
-            appraisals you explicitly approve, manual valuations with history,
-            reassessment cadence), the premium PIN keypad lock screen, the
-            Documents centre, and history-aware AI Insights.
-
-          ## Carried platform notes (1.0.5–1.0.8)
-          - Market Watch adds optional international USD reference quotes for gold,
-            silver, platinum, palladium, and copper through GoldAPI.io with the
-            keyless gold-api.com fallback covering all five metals (copper via COMEX
-            HG, mapped to XCU) — live fetching works with zero configuration.
-          - Price observations are validated and kept on-device, with freshness and
-            provider status plus interactive charts over the observations collected
-            on that device. This release does not claim historical provider backfill.
-          - **AI Market Reports** (new in 1.0.5): optional structured reports via the
-            user's own Gemini key (gemini-2.5-flash, native JSON schema, locally
-            re-validated). Reports are assembled from on-device provider
-            observations only — missing windows are labelled incomplete, never
-            filled with invented data.
-          - Portfolio Analytics & Insights includes allocation, cost-versus-value,
-            top-holding, and logged portfolio-valuation charts.
+          - **Master UI Transformation** — redesigned interface following Unslop design principles: deep charcoal surfaces, soft white and muted grey typography, restrained mint-green accents, consistent Lucide icons, unified button system, refined cards and charts.
+          - **One Official Download Link Per Platform** — genuine Apple Silicon DMG (`Vaultfolio-macOS-Apple-Silicon.dmg`) and Windows setup (`Vaultfolio-Windows-Setup.exe`).
+          - **Full Offline Capabilities & Security** — encrypted local vault with AES-256-GCM, private Intelligence ML workspace, and on-device analytics.
+          - **Reliability & Polish** — verified clean navigation, robust error boundaries, Valuation Centre with approved appraisals and manual history, encrypted documents centre, and history-aware AI Insights.
 
           ## Market data and limitations
-          - Market Watch fetching works out of the box via the keyless gold-api.com
-            fallback; GoldAPI.io remains an optional primary source with the user's
-            own key. Its USD references and any LKR conversion are not Sri
-            Lankan dealer prices.
-          - Gemini is not required: without a user-configured key, Reports show
-            setup guidance only. An exhausted Gemini quota does not affect the
-            local vault, portfolio, or Market Watch.
+          - Market Watch fetching works out of the box via the keyless gold-api.com fallback; GoldAPI.io remains an optional primary source with the user's own key. Its USD references and any LKR conversion are not Sri Lankan dealer prices.
+          - Gemini is not required: without a user-configured key, Reports show setup guidance only. An exhausted Gemini quota does not affect the local vault, portfolio, or Market Watch.
 
           ### Install notes
-          - macOS builds are **Developer ID signed and notarized** when the
-            repository's APPLE_* secrets are configured; the release notes will
-            say so explicitly only on a build where Apple actually accepted the
-            notarization. Builds without those secrets are ad-hoc signed:
-            - macOS first launch: right-click the app → **Open** (bypasses
-              Gatekeeper for this app without changing system security).
-            - Windows first launch: choose **More info → Run anyway** if
-              SmartScreen shows a warning.
-          - The app works fully offline: create a local encrypted vault on first
-            launch — no account or API keys are required. Cloud sync (via your own
-            Supabase project) is optional.
-          - Release builds must not include `.env` files, Gemini credentials, or
-            market-provider keys. `VITE_*` settings are client-visible if supplied
-            at build time, so users should configure their own low-privilege keys.
+          - macOS builds are **Developer ID signed and notarized** when the repository's APPLE_* secrets are configured; builds without those secrets are ad-hoc signed:
+            - macOS first launch: right-click the app → **Open** (bypasses Gatekeeper for this app without changing system security).
+            - Windows first launch: choose **More info → Run anyway** if SmartScreen shows a warning.
+          - The app works fully offline: create a local encrypted vault on first launch — no account or API keys are required.
           NOTES
           gh release create "${GITHUB_REF_NAME}" \
             --verify-tag \

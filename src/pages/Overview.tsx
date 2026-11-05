@@ -3,12 +3,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
   ArrowUpRight,
-  BarChart3,
+  ChartNoAxesCombined,
   Coins,
   Hash,
   Plus,
   RefreshCw,
   Sparkles,
+  Shield,
   TrendingUp,
   Vault,
   Wallet,
@@ -186,8 +187,8 @@ export function Overview() {
             </div>
           ) : (
             <div className="px-6 py-14 text-center">
-              <div className="w-10 h-10 rounded-xl bg-ink-800 border border-ink-700 flex items-center justify-center text-txt-dim mx-auto mb-3">
-                <BarChart3 size={18} />
+              <div className="w-10 h-10 rounded-xl bg-ink-800 border border-ink-700/80 flex items-center justify-center text-txt-dim mx-auto mb-3">
+                <ChartNoAxesCombined size={18} />
               </div>
               <p className="text-sm font-medium text-txt">Snapshot Trend Line</p>
               <p className="text-xs text-txt-muted mt-1.5 max-w-sm mx-auto leading-relaxed">
@@ -255,9 +256,9 @@ export function Overview() {
           <CardHeader title="Quick Actions" subtitle="Everyday vault tasks" />
           <div className="px-4 pb-4 space-y-2">
             <QuickAction to="/add" icon={<Plus size={15} className="text-accent" />} label="Add Physical Asset" />
-            <QuickAction to="/portfolio" icon={<Wallet size={15} className="text-sky-400" />} label="Review Asset Library" />
-            <QuickAction to="/insights" icon={<BarChart3 size={15} className="text-emerald-400" />} label="Portfolio Analytics" />
-            <QuickAction to="/settings" icon={<Vault size={15} className="text-amber-400" />} label="Backup & Security" />
+            <QuickAction to="/portfolio" icon={<Wallet size={15} className="text-txt-muted" />} label="Review Asset Library" />
+            <QuickAction to="/insights" icon={<ChartNoAxesCombined size={15} className="text-txt-muted" />} label="Portfolio Analytics" />
+            <QuickAction to="/settings" icon={<Shield size={15} className="text-txt-muted" />} label="Backup & Security" />
           </div>
         </Card>
       </div>

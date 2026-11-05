@@ -1,0 +1,10 @@
+# Bundled build artifacts — reproducible via scripts/build-ml-runtime.sh
+runtime/
+runtime-*/
+_cache/
+*.dmg
+*.app
+target/
+__pycache__/
+*.joblib
+.tmp/

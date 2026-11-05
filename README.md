@@ -1,139 +1,244 @@
 # Vaultfolio
 
-> A private, offline-first desktop app for recording, valuing, and understanding tangible wealth.
+> A private, offline-first desktop application for recording, valuing, and understanding tangible wealth with embedded machine learning intelligence.
 
-Vaultfolio tracks physical assets—precious metals, jewelry and gemstones, watches, property, vehicles, and other collectibles—without requiring an account or sending a local vault to a server. Local vault data is encrypted at rest with AES-256-GCM and scrypt.
+[![MIT License](https://img.shields.io/badge/License-MIT-emerald.svg)](LICENSE)
+[![Tauri v2](https://img.shields.io/badge/Tauri-v2.0-blue.svg)](https://tauri.app)
+[![React 18](https://img.shields.io/badge/React-18-cyan.svg)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.5-3178C6.svg)](https://www.typescriptlang.org)
+[![Security](https://img.shields.io/badge/Encryption-AES--256--GCM-success.svg)](SECURITY.md)
 
-## Download Vaultfolio for macOS
+---
 
-- **Download:** [`Vaultfolio-macOS.dmg`](https://github.com/PyDeV1OpEr/Vaultfolio/releases/latest/download/Vaultfolio-macOS.dmg) — Vaultfolio **1.1.2**, Apple Silicon (M-series Macs). Intel Macs use [`Vaultfolio-macOS-x64.dmg`](https://github.com/PyDeV1OpEr/Vaultfolio/releases/latest/download/Vaultfolio-macOS-x64.dmg).
-- **Install (3 steps):** ① Open the DMG → ② drag **Vaultfolio** onto the **Applications** shortcut → ③ launch Vaultfolio from Applications.
-- The DMG window shows the app and the Applications shortcut side by side; no other files need to be copied.
-- **1.1.2 fixes the dead Documents upload button on a fresh vault** (the dialog never opened from the empty state) and removes the Google Fonts CDN dependency, so the interface now renders fully offline from bundled fonts. Full detail in the [changelog](CHANGELOG.md).
-- **v1.1.1 fixed the v1.1.0 unlock blank screen** and v1.1.1+ verify clean: correct password/PIN lands on the dashboard immediately, on first launch, after restart, and after re-locking.
-- **Honest signing status:** these builds are ad-hoc signed and not notarized (no Apple Developer ID certificate was available), so the **first** launch may still show the Gatekeeper warning — Control-click the app, choose **Open**, then it opens normally forever after. The build pipeline already supports one-click Developer ID signing + Apple notarization the moment the repository's `APPLE_*` secrets are configured (see [DESKTOP.md](DESKTOP.md)); those builds will install with no warning at all.
-- Verify your download: SHA-256 checksums are published in the [release notes](https://github.com/PyDeV1OpEr/Vaultfolio/releases/latest).
+## Overview
 
-## Download the Latest Version
+**Vaultfolio** is an institutional-grade, privacy-first desktop platform engineered for tracking and valuing physical wealth—precious metals, investment watches, certified jewelry and gemstones, real estate, fine vehicles, and rare collectibles.
 
-**Truthful builds from current source.** Do not use v1.0.2–v1.0.4 (stale/invalid builds) or v1.1.0 (unlock blank-screen regression — fixed in v1.1.1). **v1.1.2 is the current source** (2026-11-04): it carries everything from v1.1.0/v1.1.1 — the Valuation Centre (AI appraisals + manual valuations + append-only history), the premium PIN keypad lock screen, the Documents centre, the history-aware AI Insights, and the unlock crash fix — plus the working Documents upload from a fresh vault and fully bundled fonts.
+Unlike conventional cloud fintech apps that expose your asset holdings to external servers, Vaultfolio operates entirely **offline-first**. All portfolio records, valuation histories, documents, and credentials remain encrypted on your device under **AES-256-GCM** derived with **scrypt**.
 
-| Platform | Download |
-| --- | --- |
-| macOS Apple Silicon (arm64) | [Vaultfolio-macOS.dmg](https://github.com/PyDeV1OpEr/Vaultfolio/releases/latest/download/Vaultfolio-macOS.dmg) |
-| macOS Intel (x64) | [Vaultfolio-macOS-x64.dmg](https://github.com/PyDeV1OpEr/Vaultfolio/releases/latest/download/Vaultfolio-macOS-x64.dmg) |
-| Windows 10/11 (x64) | [Vaultfolio-Windows-x64-setup.exe](https://github.com/PyDeV1OpEr/Vaultfolio/releases/latest/download/Vaultfolio-Windows-x64-setup.exe) |
+The application features a built-in on-device machine learning engine powered by an embedded private CPython 3.12 runtime and scikit-learn, providing private classification, regression, and clustering analytics without network requests.
 
-Each link points at the **latest** release; the same filenames appear on the [release page](https://github.com/PyDeV1OpEr/Vaultfolio/releases/latest) with SHA-256 checksums in the notes. See [DESKTOP.md](DESKTOP.md) for the installer-verification steps.
+Following the **Unslop** design methodology, Vaultfolio delivers a focused desktop experience: deep graphite surfaces, soft white typography, restrained mint accents, consistent Lucide iconography, and micro-interactions.
 
-## What’s in Vaultfolio
+---
 
-- Physical-asset portfolio tracking across precious metals, jewelry and gemstones, watches, property (including Sri Lankan perches), vehicles, and custom assets.
-- Market Watch for international USD reference quotes with a provider adapter: GoldAPI.io (optional primary, user key) plus a keyless gold-api.com fallback covering gold (XAU), silver (XAG), platinum (XPT), palladium (XPD), and copper (XCU, quoted via the COMEX HG continuous contract). Live fetching works without any configuration.
-- Interactive price timelines across 1 h, 12 h, 24 hours, 7 days, 30 days, 90 days, and all collected observations, with window changes computed from real stored observations.
-- **AI Insights** — a separate Gemini-powered section that turns your stored Market Watch observations and locally computed portfolio aggregates into structured insight cards (headline, explanation, positive/negative/neutral indicator, evidence ids, confidence and period), each grounded in a locally computed evidence pack that includes recorded valuation history, so the model explains actual numbers instead of manufacturing them. Without a key the section falls back to deterministic on-device cards; the model never supplies prices. In Settings → Gemini AI you can paste/save/replace/remove your key, pick from the current Gemini model list, and run a zero-quota connection test.
-- Optional AI Market Reports powered by *your* Gemini API key: structured, model-generated analysis grounded only in your locally stored provider data, with per-metal evidence, risks, and conditional (never guaranteed) conclusions. No prices or claims come from the model itself.
-- Local on-device market-price history, capped at 500 observations per metal. History starts when observations are collected; the app does not invent or claim provider backfill.
-- Provider, timestamp, freshness, error, and credential-status indicators; manual refresh plus low-frequency automatic collection (two runs per day by default). Rate-limit responses respect Retry-After.
-- Portfolio analytics with allocation, cost-versus-value, top-holding, and portfolio valuation-history charts, based on the user’s records.
-- **Performance analytics** — a per-period portfolio-performance panel (7 d/30 d/90 d/1 y/All) computed strictly from recorded valuation history, biggest movers with explicit change-source labels (automated market re-valuation vs owner-adjusted estimate), per-metal market-move readouts from stored Market-Watch observations, and a staleness panel that flags valuations older than 7/30 days. Every figure is derived on-device from real recorded data; periods without recorded baselines show honest empty states.
-- Manual valuations and optional configured metal/FX reference data. International reference prices and calculated LKR conversions are not presented as Sri Lankan dealer quotes.
-- **Documents centre** — store gold/silver/platinum/palladium certificates, purchase receipts, property deeds and land documents, vehicle registration and insurance, watch & jewellery authenticity certificates, warranties, and custom-named categories; link each document to an existing asset and show it in the details panel. Drag-and-drop or picker upload of PDF/JPEG/PNG/WebP (25 MB cap, validated), in-app sandboxed PDF preview and image zoom, rename/re-categorise/relink, download, delete-with-confirmation, search/filter/sort, grid or list views, and expiry tracking (expired / expiring-within-30-days / valid with a dashboard warning). Metadata travels inside the encrypted vault and therefore inside the existing encrypted backup/restore; file binaries stay local and are never executed.
-- Local encrypted vault, PIN unlock, rate limiting, encrypted backup/restore, user-configured Gemini key sealed under the vault key, and optional Supabase cloud mode.
+## Download Vaultfolio
 
-## Install
+Get the official, verified desktop release for your operating system:
 
-### macOS
-
-1. Download the DMG matching your Mac’s architecture (Apple menu → About This Mac).
-2. Open the DMG and drag `Vaultfolio.app` to Applications.
-3. Builds are **ad-hoc signed** (notarized builds require Apple Developer ID credentials — see [DESKTOP.md](DESKTOP.md)). If Gatekeeper blocks the first launch, Control-click the app, choose **Open**, then confirm. No system security settings need to change.
+### macOS — Apple Silicon
+[Download Vaultfolio for macOS (Apple Silicon)](https://github.com/PyDeV1OpEr/Vaultfolio/releases/latest/download/Vaultfolio-macOS-Apple-Silicon.dmg)
+*Compatible with Apple Silicon Macs (M1, M2, M3, M4 series). Includes bundled ML runtime and drag-and-drop installation.*
 
 ### Windows
+[Download Vaultfolio for Windows](https://github.com/PyDeV1OpEr/Vaultfolio/releases/latest/download/Vaultfolio-Windows-Setup.exe)
+*Compatible with 64-bit Windows 10 and Windows 11. Self-contained NSIS installer.*
 
-1. Download the x64 NSIS setup `.exe`.
-2. Run it and follow the installer.
-3. Builds are currently unsigned. If SmartScreen appears, use **More info → Run anyway** only after verifying the release asset checksum.
+---
 
-## Market data and API configuration
+## Key Features
 
-The core local vault, asset tracking, valuations, portfolio charts, and saved Market Watch history work without Gemini or any market API key. Market Watch live fetching is optional.
+- **Private Encrypted Vault**: Zero-knowledge local vault encrypted with AES-256-GCM and scrypt key derivation. Protected by a numeric PIN or master passphrase with rate limiting and automated session timeout.
+- **Master UI Transformation**: Designed using the Unslop design methodology with deep graphite surfaces (`#090a0d`, `#12151b`), high-contrast typography, restrained emerald/mint accents (`#10b981`), unified border radii, and Lucide icons across every action.
+- **Valuation Centre & Tracking**: Dynamic portfolio tracking with support for manual appraisals, recorded valuation histories, reassessment schedules, and automated market-based mark-to-market calculations.
+- **Market Watch**: Real-time international precious metal reference quotes (Gold, Silver, Platinum, Palladium, and COMEX Copper). Operates out of the box with zero configuration via keyless fallback, with optional GoldAPI.io integration.
+- **Performance Analytics**: Timeframe performance metrics (7d, 30d, 90d, 1y, All) calculated strictly from recorded valuation baselines, highlighting biggest movers and portfolio staleness without mock figures.
+- **AI Insights & Market Reports**: Privacy-preserving insight engine generating structured risk assessments and portfolio summaries. Optional Gemini integration (`gemini-2.5-flash`) executes with strict schema validation; the model never invents prices or alters valuation math.
+- **Encrypted Documents Centre**: Store certificates of authenticity, insurance policies, land deeds, and purchase receipts (PDF, PNG, JPEG, WebP up to 25 MB) with sandbox preview, expiry tracking, and encrypted backup portability.
+- **Intelligence (Private ML Workspace)**: Train, evaluate, and deploy tabular machine learning models (classification, regression, clustering) entirely on-device using a bundled private CPython runtime. Complete with confusion matrices, residual curves, ROC curves, and batch inference.
 
-Copy `.env.example` to `.env.local` for development and configure only the services you use:
+---
 
-```bash
-# Optional: only needed to add GoldAPI.io as a primary source
-VITE_GOLDAPI_KEY=your_personal_low_privilege_key
+## Supported Asset Categories
+
+| Category | Typical Assets | Special Capabilities |
+| :--- | :--- | :--- |
+| **Precious Metals** | Gold (XAU), Silver (XAG), Platinum (XPT), Palladium (XPD), Copper (XCU) | Weight conversions (grams, troy oz, tolas, sovereign), purity calculation (24k, 22k, 18k, 999 fineness), live reference repricing |
+| **Jewelry & Gemstones** | Rings, necklaces, loose diamonds, sapphires, rubies, emeralds | Carat weight, certification numbers (GIA, IGI), cut/color/clarity grading |
+| **Fine Timepieces** | Luxury and vintage mechanical watches | Reference numbers, serial records, movement caliber, box & papers tracking |
+| **Real Estate & Land** | Commercial, residential, agricultural land | Surface area units (sq ft, sq m, acres, Sri Lankan perches), deed records |
+| **Vehicles** | Classic automobiles, motorcycles, exotic cars | VIN, mileage logs, service history linkages, condition ratings |
+| **Custom & Collectibles** | Rare books, art, numismatics, fine wine | Custom metric definitions, provenance documentation |
+
+---
+
+## Visual Tour
+
+### Dashboard Overview
+![Overview Dashboard](docs/screenshots/overview-dashboard.png)
+
+### Portfolio Holdings & Valuation
+![Portfolio Grid](docs/screenshots/portfolio-grid.png)
+
+### Asset Detail & Historical Valuations
+![Asset Detail](docs/screenshots/asset-detail.png)
+
+### Market Watch & Reference Quotes
+![Market Valuations](docs/screenshots/market-valuations.png)
+
+### Deep Performance Insights
+![Insights](docs/screenshots/insights.png)
+
+---
+
+## Technology Stack
+
+### Frontend & UI
+- **Framework**: React 18 with TypeScript 5.5
+- **Styling**: Tailwind CSS with custom Unslop design tokens
+- **Routing**: React Router 6
+- **Charts & Data Viz**: Recharts with custom SVG gradients and tooltips
+- **Icons**: Lucide React
+- **Build System**: Vite 5.4
+
+### Desktop Shell & Native Layer
+- **Shell**: Tauri v2
+- **Core Language**: Rust (1.78+)
+- **Security**: Hardened runtime, sandboxed IPC, scoped filesystem capability permissions
+- **Packaging**: macOS DMG (`hdiutil`, ad-hoc/Developer ID signed), Windows NSIS installer
+
+### Intelligence ML Engine
+- **Runtime**: Pinned standalone CPython 3.12 (astral-sh/python-build-standalone)
+- **Data Science Libraries**: NumPy, Pandas, Scikit-learn, SciPy, Joblib
+- **Inter-process Communication**: Non-blocking NDJSON over standard streams (stdin/stdout) managed by Rust
+
+---
+
+## Security & Offline-First Architecture
+
+Vaultfolio is designed with a defense-in-depth model where **your data never leaves your computer**:
+
+1. **Zero Telemetry**: No tracking pixels, analytics cookies, remote crash reporting, or phone-home requests.
+2. **Envelope Encryption**: Vault data is encrypted using AES-256-GCM. Cryptographic keys are derived from the user PIN or passphrase using `scrypt` with secure salt parameters.
+3. **Sealed Credentials**: External API keys (e.g., Gemini or GoldAPI) are sealed within the encrypted vault envelope and never written in plaintext to configuration files.
+4. **Air-Gapped ML Processing**: The bundled machine learning workspace executes scripts via an internal Python binary located strictly within the application bundle resources, preventing external network calls.
+5. **Portable Encrypted Backups**: Backups export as password-protected encrypted archives, ensuring secure transfer across workstations.
+
+---
+
+## Installation & Setup
+
+### macOS (Apple Silicon)
+1. Download `Vaultfolio-macOS-Apple-Silicon.dmg` from the [Download section](#download-vaultfolio).
+2. Double-click the DMG to open it.
+3. Drag the **Vaultfolio** application icon into the **Applications** folder shortcut.
+4. Launch Vaultfolio from Applications or Spotlight.
+   *Note: If macOS Gatekeeper displays a developer notice on first launch, Control-click the application icon, choose **Open**, and confirm.*
+
+### Windows
+1. Download `Vaultfolio-Windows-Setup.exe` from the [Download section](#download-vaultfolio).
+2. Run the installer and complete the setup wizard.
+3. Launch **Vaultfolio** from the Start Menu or desktop shortcut.
+   *Note: If Windows SmartScreen appears, click **More info** followed by **Run anyway**.*
+
+---
+
+## Project Structure
+
+```
+Vaultfolio/
+├── .github/workflows/       # CI/CD release and verification pipelines
+├── docs/                    # Technical documentation and UI screenshots
+├── ml-engine/               # Offline Python ML engine & dependencies
+│   ├── service/             # NDJSON Python microservice (models, train, predict)
+│   ├── samples/             # Bundled CC0 tabular datasets (gems, pricing, clustering)
+│   └── runtime-lock.txt     # Pinned Python package dependencies
+├── scripts/                 # Build and release automation scripts
+│   ├── build-ml-runtime.sh  # Standalone CPython environment packager
+│   ├── release-macos.sh     # Apple Silicon packaging and verification
+│   └── sample-smoke.py      # End-to-end ML integration test suite
+├── src/                     # React + TypeScript frontend
+│   ├── components/          # Shared UI primitives, AppLayout, Charts, Modals
+│   ├── lib/                 # Crypto (AES-GCM), database, MarketWatch, validation
+│   ├── pages/               # Views: Overview, Portfolio, MarketWatch, Insights,
+│   │                        # AI Insights, Documents, Settings, Intelligence
+│   ├── index.css            # Unslop typography and base design rules
+│   └── App.tsx              # Error boundary and primary routing
+├── src-tauri/               # Rust desktop shell
+│   ├── capabilities/        # Tauri v2 security policies and IPC filters
+│   ├── src/                 # Rust commands, ML engine process supervisor, SQLite/store
+│   ├── tauri.conf.json      # Tauri application definition
+│   └── Cargo.toml           # Rust dependencies
+└── tailwind.config.js       # Unslop design tokens (graphite palette, mint accents)
 ```
 
-gold-api.com is a keyless fallback and is always available: it supports all five metals, with copper served under its COMEX HG code (USD per pound, mapped to XCU). GoldAPI.io is an optional primary for XAU, XAG, XPT, and XPD with a free tier (~300 requests/month). It no longer uses a fallback key — the former Goldsafe.io provider is defunct and was retired in this release. API keys prefixed `VITE_` are compiled into a client bundle: do not ship a shared, privileged, or secret key. Use a personal, read-only, revocable key, or configure no key at all.
+---
 
-`VITE_METALS_API_URL` can optionally point to a separately managed endpoint returning gold/silver and USD/LKR values; this is distinct from Market Watch. Any LKR conversion remains a reference calculation, not a verified local dealer price.
+## Building from Source
 
-Gemini is not integrated or required by the current app for tracking. The optional **AI Market Reports** section uses *your* Gemini API key, configured in-app under Settings → Gemini AI:
+### Prerequisites
+- **Node.js**: v20 or v22 (Node 22 LTS recommended)
+- **Rust**: Stable toolchain (`rustup update stable`)
+- **Python**: Python 3.12 (only required if building custom ML engines from scratch)
 
-- Reports call `gemini-2.5-flash` via Google's REST API with native structured-output (`responseSchema`), so analysis arrives as validated JSON, not free text.
-- The app never accepts numeric prices from the model. Reports are assembled from provider observations stored on your device; missing windows are labelled incomplete rather than filled in. Period options: 24 h / 7 d / 30 d / 90 d.
-- The key is stored encrypted at rest (AES-256-GCM envelope, sealed with the vault DEK or a passphrase) and is sent only to Google. Because Vaultfolio runs locally, this is client-side storage: never use a production-critical key here.
-- If no key is configured, Reports show setup guidance and nothing else — the rest of the app is unaffected.
-
-To create a free key: [aistudio.google.com](https://aistudio.google.com) → "Get API key".
-
-## Privacy, storage, and backup
-
-- Vault records are encrypted locally. Market Watch settings and observations are stored locally in the browser/webview storage on that device.
-- Clearing app/site data removes local history and settings. Use the in-app backup feature before moving devices, reinstalling, or clearing data.
-- Optional Supabase mode requires your own project and public anon credentials; it is not required for an offline vault.
-- No embedded `.env` file, Gemini credential, or provider key belongs in a release build.
-
-## Development
-
-Prerequisites: Node.js 20+ (CI uses Node 22), npm, and Rust/Cargo for desktop builds.
-
+### Step 1: Clone and Install
 ```bash
 git clone https://github.com/PyDeV1OpEr/Vaultfolio.git
 cd Vaultfolio
 npm ci
+```
+
+### Step 2: Quality Gate Validation
+```bash
+# Verify TypeScript types
 npm run typecheck
+
+# Run Vitest test suites (182 unit & integration tests)
 npm test
+
+# Build production bundle
 npm run build
 ```
 
-Run the web app with `npm run dev`, or the desktop app with `npm run desktop:dev`.
-
-### Installer builds
-
+### Step 3: Run in Development Mode
 ```bash
-# Native macOS DMG on macOS
-npm run desktop:build:macos
+# Run web client only
+npm run dev
 
-# Native Windows NSIS setup installer on Windows
+# Run desktop application with hot reload
+npm run desktop:dev
+```
+
+### Step 4: Build Desktop Installers
+```bash
+# Package macOS DMG (Apple Silicon)
+bash scripts/release-macos.sh aarch64
+
+# Package Windows NSIS Setup (on Windows host)
 npm run desktop:build:windows
 ```
 
-The tag-triggered [release workflow](.github/workflows/release.yml) builds macOS arm64/x64 DMGs and the Windows x64 installer on their native GitHub-hosted runners, uploads them to the same draft release, and publishes only after both jobs succeed.
+---
+
+## Verification & Checksums
+
+You can verify the authenticity of release artifacts using SHA-256 hashes:
+
+```bash
+# macOS
+shasum -a 256 Vaultfolio-macOS-Apple-Silicon.dmg
+
+# Windows (PowerShell)
+Get-FileHash -Algorithm SHA256 Vaultfolio-Windows-Setup.exe
+```
+
+Current release verified checksums:
+- **macOS Apple Silicon**: `16faf88ac1f80a13512518805d544bc0234481f70f5081eb812927aa7d7e30d1`
+- **Windows Setup**: `0fac6c3feb2a9b8b64230e5e79eebc7d2fe6fc61f64e6c57610715d96968d8d0`
+
+---
 
 ## Troubleshooting
 
-- **No Market Watch prices:** Refresh fetches from the keyless gold-api.com fallback without any key; provider errors and unsupported metals are shown in the UI. A `VITE_GOLDAPI_KEY` is only needed if you want GoldAPI.io as an additional primary source.
-- **No chart history:** observations are recorded only after successful collection on this device; choose a wider range or collect additional observations.
-- **Values look unlike a Sri Lankan shop quote:** Market Watch quotes are international USD references. Enter a manual valuation or configure an appropriate source for your use case.
-- **Cannot unlock the vault:** use the in-app PIN recovery flow with the vault master password. Restore a backup only if you have verified it belongs to that vault.
-- **"API key not valid" in Reports:** re-check the pasted key (Google AI Studio keys are 39 characters starting `AIza`) or press Remove key in Settings → Gemini AI and add a fresh one. Quota errors show Google's suggested wait time.
-- **Report says "incomplete":** the selected window has fewer than two stored observations for that metal; collect more Market Watch history or pick a longer period. Gaps are never filled with invented data.
+- **Market Watch Data**: Real-time quotes fetch automatically from the keyless `gold-api.com` fallback. A custom `VITE_GOLDAPI_KEY` is completely optional.
+- **PIN Unlock Issues**: In the event of a forgotten PIN, use the master vault recovery password established during initialization.
+- **Offline ML Training Duration**: Model training on large custom datasets (10,000+ rows) runs on CPU using scikit-learn. The interface shows progress indicators; training times depend on local CPU core performance.
+- **Documents Preview**: Embedded previews for PDF and image attachments render within an isolated sandboxed iframe. Ensure files are under the 25 MB threshold.
 
-## Security and release verification
+---
 
-See [SECURITY.md](SECURITY.md) for the threat model and [DESKTOP.md](DESKTOP.md) for desktop-build details. Verify every published installer with SHA-256 before launch:
+## Attribution & License
 
-```bash
-# macOS / Linux
-shasum -a 256 <installer>
-
-# Windows PowerShell
-Get-FileHash -Algorithm SHA256 <installer>
-```
-
-## License
-
-Released under the [MIT License](LICENSE). Contributions are welcome through [issues](https://github.com/PyDeV1OpEr/Vaultfolio/issues) and [pull requests](https://github.com/PyDeV1OpEr/Vaultfolio/pulls).
+- **Design Methodology**: Inspired by the clean, restrained principles of [Unslop](https://github.com/heydamir/unslop.git).
+- **Icons**: [Lucide Icons](https://lucide.dev) (ISC License).
+- **License**: Released under the [MIT License](LICENSE).

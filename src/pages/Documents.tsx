@@ -22,7 +22,7 @@ import {
   validateDocFile,
   type NewDocumentRecord,
 } from '../lib/documents';
-import { EmptyState, Modal } from '../components/ui';
+import { EmptyState, Modal, Button } from '../components/ui';
 import type { DocumentRecord } from '../lib/types';
 
 type SortKey = 'recent' | 'oldest' | 'name' | 'category' | 'expiry';
@@ -116,7 +116,7 @@ export function Documents() {
           icon={<Files className="text-accent" size={28} />}
           title="No documents yet"
           body="Store certificates, deeds, receipts and insurance papers for your physical assets — encrypted, offline, and linked to your portfolio."
-          action={<PrimaryBtn onClick={() => setUploadOpen(true)}><Upload size={15} /> Upload document</PrimaryBtn>}
+          action={<Button variant="primary" size="md" onClick={() => setUploadOpen(true)}><Upload size={15} /> Upload document</Button>}
         />
         {dialogs}
       </>
@@ -151,18 +151,6 @@ export function Documents() {
 
 /* ───────────────────────── Major components ───────────────────────── */
 
-function PrimaryBtn({ children, onClick, danger, disabled }: { children: React.ReactNode; onClick?: () => void; danger?: boolean; disabled?: boolean }) {
-  return (
-    <button
-      onClick={() => onClick?.()}
-      disabled={disabled || !onClick}
-      className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-medium transition-all active:scale-[0.97] ${danger ? 'bg-rose-600/90 text-white hover:bg-rose-600' : 'bg-accent text-white hover:bg-accent-hover'}`}
-    >
-      {children}
-    </button>
-  );
-}
-
 function StatCard({ icon, label, value, warn }: { icon: React.ReactNode; label: string; value: string; warn?: boolean }) {
   return (
     <div className="rounded-xl border border-ink-700/80 bg-ink-850/60 p-3.5 flex items-center gap-3">
@@ -185,7 +173,7 @@ function DocsHeader({ count, totalBytes, expiring, onUpload }: { count: number; 
           </h1>
           <p className="text-xs text-txt-dim mt-0.5">Certificates, deeds & receipts — encrypted at rest, offline, linked to your assets.</p>
         </div>
-        <PrimaryBtn onClick={onUpload}><Upload size={14} /> Upload document</PrimaryBtn>
+        <Button variant="primary" size="sm" onClick={onUpload}><Upload size={14} /> Upload document</Button>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mt-4">
         <StatCard icon={<Files size={15} />} label="Documents" value={String(count)} />
@@ -451,7 +439,7 @@ function UploadDialog({ assets, onClose }: { assets: { id: string; name: string 
 
         <div className="flex justify-end gap-2 mt-1">
           <button onClick={onClose} className="rounded-lg px-3.5 py-2 text-xs border border-ink-700 hover:bg-ink-800">Cancel</button>
-          <PrimaryBtn onClick={!busy && v?.ok && !!file ? submit : undefined} danger={false}>{busy ? 'Saving…' : 'Save document'}</PrimaryBtn>
+          <Button variant="primary" size="sm" onClick={!busy && v?.ok && !!file ? submit : undefined}>{busy ? 'Saving…' : 'Save document'}</Button>
         </div>
       </div>
     </Modal>
@@ -635,8 +623,8 @@ function EditDialog({ doc, assets, onClose, onUpdate }: {
         <Field label="Description"><textarea rows={2} className="rounded-lg border border-ink-700 bg-ink-900 px-2.5 py-1.5 text-xs resize-none" value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
         {error && <p className="text-2xs text-rose-400 flex items-center gap-1"><AlertTriangle size={11} /> {error}</p>}
         <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="rounded-lg px-3.5 py-2 text-xs border border-ink-700 hover:bg-ink-800">Cancel</button>
-          <PrimaryBtn onClick={!busy ? submit : undefined}>{busy ? 'Saving…' : 'Save changes'}</PrimaryBtn>
+          <Button variant="secondary" size="sm" onClick={onClose}>Cancel</Button>
+          <Button variant="primary" size="sm" onClick={!busy ? submit : undefined}>{busy ? 'Saving…' : 'Save changes'}</Button>
         </div>
       </div>
     </Modal>
@@ -657,8 +645,8 @@ function DeleteDialog({ doc, assetNameById, onClose, onConfirm }: {
         Delete <span className="font-semibold">“{doc.name}”</span> permanently?{linked ? <> It is linked to <span className="text-accent">{linked}</span> — deleting the document will <span className="text-amber-300">not</span> affect the asset.</> : ' The file cannot be recovered.'}
       </p>
       <div className="flex justify-end gap-2 mt-4">
-        <button onClick={onClose} className="rounded-lg px-3.5 py-2 text-xs border border-ink-700 hover:bg-ink-800">Cancel</button>
-        <PrimaryBtn danger onClick={async () => { setBusy(true); try { await onConfirm(doc.id); onClose(); } finally { setBusy(false); } }}>{busy ? 'Deleting…' : 'Delete document'}</PrimaryBtn>
+        <Button variant="secondary" size="sm" onClick={onClose}>Cancel</Button>
+        <Button variant="danger" size="sm" onClick={async () => { setBusy(true); try { await onConfirm(doc.id); onClose(); } finally { setBusy(false); } }}>{busy ? 'Deleting…' : 'Delete document'}</Button>
       </div>
     </Modal>
   );
