@@ -20,15 +20,18 @@ body {
 /* ─── Scrollbars ─── */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #28303f transparent;
+  scrollbar-color: #24252C transparent;
 }
 *::-webkit-scrollbar {
   width: 5px;
   height: 5px;
 }
 *::-webkit-scrollbar-thumb {
-  background: #28303f;
+  background: #24252C;
   border-radius: 999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #3D4158;
 }
 *::-webkit-scrollbar-track {
   background: transparent;
@@ -127,17 +130,17 @@ input:focus,
 select:focus,
 textarea:focus {
   border-color: theme('colors.accent.DEFAULT');
-  box-shadow: 0 0 0 1px theme('colors.accent.DEFAULT');
+  box-shadow: 0 0 0 1px theme('colors.accent.DEFAULT'), 0 0 12px rgba(169, 155, 255, 0.15);
 }
 
 /* ─── Modal backdrop ─── */
 .modal-backdrop {
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 /* ─── Custom selection color ─── */
 ::selection {
-  background: rgba(16, 185, 129, 0.25);
-  color: #ededed;
+  background: rgba(169, 155, 255, 0.28);
+  color: #ffffff;
 }

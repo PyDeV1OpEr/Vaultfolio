@@ -18,7 +18,7 @@ Unlike conventional cloud fintech apps that expose your asset holdings to extern
 
 The application features a built-in on-device machine learning engine powered by an embedded private CPython 3.12 runtime and scikit-learn, providing private classification, regression, and clustering analytics without network requests.
 
-Following the **Unslop** design methodology, Vaultfolio delivers a focused desktop experience: deep graphite surfaces, soft white typography, restrained mint accents, consistent Lucide iconography, and micro-interactions.
+Following the **Unslop** design methodology, Vaultfolio delivers a focused desktop experience: deep near-black surfaces (`#08090B`), dark charcoal panels with subtle purple undertones, soft white typography, elegant lavender accents (`#A99BFF`), consistent Lucide iconography, and smooth micro-interactions.
 
 ---
 
@@ -39,7 +39,8 @@ Get the official, verified desktop release for your operating system:
 ## Key Features
 
 - **Private Encrypted Vault**: Zero-knowledge local vault encrypted with AES-256-GCM and scrypt key derivation. Protected by a numeric PIN or master passphrase with rate limiting and automated session timeout.
-- **Master UI Transformation**: Designed using the Unslop design methodology with deep graphite surfaces (`#090a0d`, `#12151b`), high-contrast typography, restrained emerald/mint accents (`#10b981`), unified border radii, and Lucide icons across every action.
+- **Master UI Transformation**: Designed using the Unslop design methodology with deep charcoal surfaces (`#08090B`, `#101116`), high-contrast soft-white typography, restrained lavender accents (`#A99BFF`), unified 18px border radii, eye-friendly contrast, and Lucide icons across every action.
+- **Dynamic Metal Mark-to-Market**: Bullion and coinage holdings (Gold bars, Silver ingots, Platinum coins) automatically compute their fine weight and revalue dynamically against live spot market rates with background updates.
 - **Valuation Centre & Tracking**: Dynamic portfolio tracking with support for manual appraisals, recorded valuation histories, reassessment schedules, and automated market-based mark-to-market calculations.
 - **Market Watch**: Real-time international precious metal reference quotes (Gold, Silver, Platinum, Palladium, and COMEX Copper). Operates out of the box with zero configuration via keyless fallback, with optional GoldAPI.io integration.
 - **Performance Analytics**: Timeframe performance metrics (7d, 30d, 90d, 1y, All) calculated strictly from recorded valuation baselines, highlighting biggest movers and portfolio staleness without mock figures.

@@ -157,7 +157,7 @@ export function AiInsights() {
         <div className="flex items-center gap-2">
           <select
             aria-label="Analysis window"
-            className="bg-ink-900 border border-ink-700 rounded-lg text-xs px-2 py-2 text-txt"
+            className="bg-ink-900 border border-ink-700 rounded-xl text-xs px-3 py-2 text-txt focus:outline-none focus:border-accent"
             value={period}
             onChange={(e) => setPeriod(e.target.value as ReportPeriod)}
           >

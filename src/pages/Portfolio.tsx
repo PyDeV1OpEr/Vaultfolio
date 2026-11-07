@@ -130,7 +130,7 @@ export function Portfolio() {
       </div>
 
       {/* Filter and View Controls Bar */}
-      <div className="flex flex-wrap gap-2.5 items-center justify-between bg-ink-900/60 p-2.5 rounded-xl border border-ink-700/80">
+      <div className="flex flex-wrap gap-2.5 items-center justify-between bg-ink-875 p-2.5 rounded-2xl border border-ink-700">
         <div className="flex flex-wrap gap-2 items-center flex-1 min-w-[240px]">
           {/* Search Field */}
           <div className="relative flex-1 min-w-[180px] max-w-xs">
@@ -140,7 +140,7 @@ export function Portfolio() {
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search assets…"
               aria-label="Search assets"
-              className="pl-8 pr-8 text-xs h-8"
+              className="pl-8 pr-8 text-xs h-8 rounded-xl"
             />
             {query && (
               <button
@@ -158,7 +158,7 @@ export function Portfolio() {
             value={sort}
             onChange={(e) => setSort(e.target.value as SortKey)}
             aria-label="Sort assets"
-            className="w-auto text-xs h-8 py-0"
+            className="w-auto text-xs h-8 py-0 rounded-xl"
           >
             {SORTS.map((s) => (
               <option key={s.value} value={s.value}>
@@ -172,7 +172,7 @@ export function Portfolio() {
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as 'active' | 'sold' | 'archived' | 'all')}
             aria-label="Filter by status"
-            className="w-auto text-xs h-8 py-0"
+            className="w-auto text-xs h-8 py-0 rounded-xl"
           >
             <option value="active">Active Only</option>
             <option value="sold">Sold Only</option>
@@ -189,7 +189,7 @@ export function Portfolio() {
                 setCategory('all');
                 setStatusFilter('active');
               }}
-              className="text-2xs text-txt-dim hover:text-txt"
+              className="text-2xs text-txt-dim hover:text-txt rounded-lg"
             >
               <X size={12} /> Reset
             </Button>
@@ -197,13 +197,13 @@ export function Portfolio() {
         </div>
 
         {/* Grid/List View Toggle */}
-        <div className="flex rounded-lg border border-ink-700/80 bg-ink-850 p-0.5 overflow-hidden" role="group" aria-label="Display mode">
+        <div className="flex rounded-xl border border-ink-700 bg-ink-900 p-0.5 overflow-hidden" role="group" aria-label="Display mode">
           <button
             onClick={() => setView('grid')}
             aria-pressed={view === 'grid'}
             title="Grid view"
-            className={`p-1.5 rounded-md transition-colors duration-150 ${
-              view === 'grid' ? 'bg-ink-750 text-txt shadow-elev-1' : 'text-txt-dim hover:text-txt'
+            className={`p-1.5 rounded-lg transition-all duration-150 ${
+              view === 'grid' ? 'bg-[#7047EB]/25 text-white border border-accent/40 shadow-[0_0_10px_rgba(169,155,255,0.15)]' : 'text-txt-dim hover:text-txt'
             }`}
           >
             <LayoutGrid size={15} />
@@ -212,8 +212,8 @@ export function Portfolio() {
             onClick={() => setView('list')}
             aria-pressed={view === 'list'}
             title="List view"
-            className={`p-1.5 rounded-md transition-colors duration-150 ${
-              view === 'list' ? 'bg-ink-750 text-txt shadow-elev-1' : 'text-txt-dim hover:text-txt'
+            className={`p-1.5 rounded-lg transition-all duration-150 ${
+              view === 'list' ? 'bg-[#7047EB]/25 text-white border border-accent/40 shadow-[0_0_10px_rgba(169,155,255,0.15)]' : 'text-txt-dim hover:text-txt'
             }`}
           >
             <List size={15} />

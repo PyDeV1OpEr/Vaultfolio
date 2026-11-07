@@ -209,12 +209,13 @@ export function UnlockScreen() {
 
         {/* ── Branding + context ── */}
         <div className="flex flex-col items-center mb-8 vf-rise">
-          <span className="w-12 h-12 rounded-xl bg-ink-900 border border-ink-700/80 flex items-center justify-center mb-3">
-            <Vault size={22} className="text-accent" />
+          <span className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#1E1938] to-[#121320] border border-accent/35 flex items-center justify-center mb-3 text-accent shadow-card-purple">
+            <Vault size={24} className="text-accent" />
           </span>
-          <span className="text-xl font-semibold tracking-tight text-txt">Vaultfolio</span>
-          <span className="text-xs text-txt-dim mt-1.5">
-            {settings.ownerName ? `Encrypted vault · ${settings.ownerName}` : 'Encrypted local vault'}
+          <span className="text-2xl font-bold tracking-tight text-txt">Vaultfolio</span>
+          <span className="text-xs text-txt-muted mt-1.5 flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+            <span>{settings.ownerName ? `Encrypted vault · ${settings.ownerName}` : 'Encrypted local vault'}</span>
           </span>
         </div>
 
@@ -263,7 +264,7 @@ export function UnlockScreen() {
                     <button
                       key={d}
                       type="button"
-                      className="vf-key h-16 rounded-2xl border border-ink-700 bg-ink-900 text-xl font-medium text-txt tnum focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                      className="vf-key h-16 rounded-2xl border border-ink-700 bg-ink-875 hover:bg-ink-800 hover:border-accent/35 text-xl font-semibold text-txt tnum focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                       onClick={() => pressKey(d)}
                       disabled={cooldownActive}
                       aria-label={`Digit ${d}`}
@@ -282,7 +283,7 @@ export function UnlockScreen() {
                   </button>
                   <button
                     type="button"
-                    className="vf-key h-16 rounded-2xl border border-ink-700 bg-ink-900 text-xl font-medium text-txt tnum focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    className="vf-key h-16 rounded-2xl border border-ink-700 bg-ink-875 hover:bg-ink-800 hover:border-accent/35 text-xl font-semibold text-txt tnum focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                     onClick={() => pressKey(0)}
                     disabled={cooldownActive}
                     aria-label="Digit 0"
@@ -291,7 +292,7 @@ export function UnlockScreen() {
                   </button>
                   <button
                     type="button"
-                    className="vf-key h-16 rounded-2xl border border-ink-700 bg-ink-900 flex items-center justify-center text-txt-dim focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-40"
+                    className="vf-key h-16 rounded-2xl border border-ink-700 bg-ink-875 hover:bg-ink-800 hover:border-accent/35 flex items-center justify-center text-txt-dim hover:text-txt focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-40"
                     onClick={backspace}
                     disabled={cooldownActive || pin.length === 0}
                     aria-label="Backspace"

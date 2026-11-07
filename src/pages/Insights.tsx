@@ -206,10 +206,10 @@ export function Insights() {
                 <button
                   key={p.id}
                   onClick={() => setPeriod(p.id)}
-                  className={`px-2.5 py-1 rounded-md border text-2xs font-medium transition-colors ${
+                  className={`px-2.5 py-1 rounded-full border text-2xs font-medium transition-all ${
                     period === p.id
-                      ? 'border-accent/40 bg-accent-soft text-accent'
-                      : 'border-ink-750 text-txt-muted hover:border-ink-700 hover:text-txt'
+                      ? 'border-accent/40 bg-[#7047EB]/25 text-white shadow-[0_0_10px_rgba(169,155,255,0.15)]'
+                      : 'border-ink-700 bg-ink-900 text-txt-muted hover:border-ink-650 hover:text-txt'
                   }`}
                 >
                   {p.shortLabel}

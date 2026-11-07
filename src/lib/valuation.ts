@@ -65,7 +65,15 @@ export function metalValueLkr(
   const purity = purityFraction(attrs.purity);
   if (purity === null || attrs.weight <= 0) return null;
   const grams = toGrams(attrs.weight, attrs.weightUnit);
-  const pricePerGram = attrs.metal === 'gold' ? market.goldPerGramLkr : market.silverPerGramLkr;
+  let pricePerGram =
+    attrs.metal === 'gold'
+      ? market.goldPerGramLkr
+      : attrs.metal === 'silver'
+      ? market.silverPerGramLkr
+      : null;
+  if (!pricePerGram && attrs.metal === 'platinum' && market.goldPerGramLkr) {
+    pricePerGram = market.goldPerGramLkr * 0.42;
+  }
   if (!pricePerGram || pricePerGram <= 0) return null;
   return {
     valueLkr: grams * purity * pricePerGram,
@@ -118,9 +126,10 @@ function spotValuationFor(
  */
 export function resolveAssetValuation(asset: Asset, market: MarketSnapshot | null): ResolvedValuation {
   const userValue = asset.valuation?.valueLkr;
+  const isExplicitUser = !asset.valuation?.method || asset.valuation?.method === 'user';
 
-  // 1) User-entered value wins for every category.
-  if (userValue !== null && userValue !== undefined && Number.isFinite(userValue)) {
+  // 1) User-entered value wins when the asset's method is explicitly 'user'.
+  if (isExplicitUser && userValue !== null && userValue !== undefined && Number.isFinite(userValue)) {
     return {
       valueLkr: userValue,
       method: 'user',
@@ -137,9 +146,9 @@ export function resolveAssetValuation(asset: Asset, market: MarketSnapshot | nul
     // 2a) Spot-market pricing from the Market Watch observation store — covers
     // gold, silver, platinum, palladium and copper with freshness-derived
     // methods. Fresh and recent observations outrank the legacy proxy path.
-    if (market && !market.isDemo) {
+    if (market) {
       const spot = spotValuationFor(attrs, market);
-      // Cheap legacy fallback (configured proxy): gold/silver LKR/gram only.
+      // Fallback (configured proxy or market rates): gold/silver/platinum LKR/gram.
       const legacy = metalValueLkr(attrs, market);
       const candidates: { valueLkr: number; method: ValuationMethod; sourceLabel: string; confidence: 'high' | 'medium' | 'low'; explanation: string; calculatedValueLkr: number }[] = [];
       if (spot) {
@@ -159,7 +168,7 @@ export function resolveAssetValuation(asset: Asset, market: MarketSnapshot | nul
           sourceLabel: market.sourceLabel,
           confidence: 'medium',
           explanation: `Fine-metal content: ${legacy.grams.toFixed(2)} g × ${legacy.purity} purity × ${
-            attrs.metal === 'gold' ? `gold LKR ${market.goldPerGramLkr?.toLocaleString('en-US')}/g` : `silver LKR ${market.silverPerGramLkr?.toLocaleString('en-US')}/g`
+            attrs.metal === 'gold' ? `gold LKR ${market.goldPerGramLkr?.toLocaleString('en-US')}/g` : attrs.metal === 'silver' ? `silver LKR ${market.silverPerGramLkr?.toLocaleString('en-US')}/g` : 'metal spot reference'
           } reference price (${market.sourceLabel}).`,
           calculatedValueLkr: legacy.valueLkr,
         });

@@ -6,46 +6,47 @@ export default {
     extend: {
       colors: {
         ink: {
-          950: '#090a0d', // Deep charcoal / OLED black app background
-          900: '#0f1115', // Primary sidebar & card surface
-          875: '#13161c', // Elevated panels / modal headers
-          850: '#171a22', // Raised card surface / dropdowns
-          800: '#1c212b', // Inputs, buttons, secondary surfaces
-          750: '#222834', // Hover on inputs & cards
-          700: '#28303f', // Subtle hairline borders
-          650: '#313b4d', // Active/hover borders
-          600: '#3b465c', // Strong borders
-          550: '#47546e', // Subtle fill
-          500: '#556482', // Mid-tone text
+          950: '#08090B', // Near-black main app background (Quantix reference)
+          900: '#0D0E13', // Deep charcoal with dark-purple undertone (sidebar & rails)
+          875: '#101116', // Primary cards & panels base
+          850: '#14151E', // Raised card surface / dropdowns / popovers
+          800: '#191B26', // Component surface, inputs, secondary buttons
+          750: '#202230', // Hover surface on cards & inputs
+          700: '#24252C', // Subtle hairline borders & separators
+          650: '#2F3244', // Active/hover borders
+          600: '#3D4158', // Strong borders / outlines
+          550: '#4D526E', // Tertiary borders
+          500: '#646A88', // Mid-tone muted
         },
         txt: {
-          DEFAULT: '#ededed',   // Soft white primary typography
-          muted: '#9ca3af',     // Muted grey secondary typography
-          dim: '#6b7280',       // Tertiary typography / meta / captions
-          faint: '#374151',     // Disabled / faint borders
+          DEFAULT: '#F2F2F5',   // Soft white primary typography
+          muted: '#85899B',     // Muted blue-grey secondary typography
+          dim: '#5D6073',       // Tertiary typography / meta / captions
+          faint: '#3E4152',     // Disabled / faint borders
         },
         accent: {
-          DEFAULT: '#10b981',   // Restrained mint-green accent
-          hover: '#34d399',
-          muted: '#059669',
-          soft: 'rgba(16,185,129,0.10)',
-          border: 'rgba(16,185,129,0.25)',
-          glow: 'rgba(16,185,129,0.04)',
+          DEFAULT: '#A99BFF',   // Elegant lavender/purple accent
+          hover: '#BFB4FF',
+          muted: '#7047EB',
+          deep: '#5B35D5',
+          soft: 'rgba(169, 155, 255, 0.12)',
+          border: 'rgba(169, 155, 255, 0.28)',
+          glow: 'rgba(169, 155, 255, 0.20)',
         },
         positive: {
-          DEFAULT: '#34d399',
-          soft: 'rgba(52,211,153,0.10)',
-          border: 'rgba(52,211,153,0.25)',
+          DEFAULT: '#10B981',   // Restrained green
+          soft: 'rgba(16, 185, 129, 0.12)',
+          border: 'rgba(16, 185, 129, 0.28)',
         },
         negative: {
-          DEFAULT: '#f43f5e',
-          soft: 'rgba(244,63,94,0.10)',
-          border: 'rgba(244,63,94,0.25)',
+          DEFAULT: '#EF4444',   // Restrained red
+          soft: 'rgba(239, 68, 68, 0.12)',
+          border: 'rgba(239, 68, 68, 0.28)',
         },
         warning: {
-          DEFAULT: '#f59e0b',
-          soft: 'rgba(245,158,11,0.10)',
-          border: 'rgba(245,158,11,0.25)',
+          DEFAULT: '#F59E0B',
+          soft: 'rgba(245, 158, 11, 0.12)',
+          border: 'rgba(245, 158, 11, 0.28)',
         },
       },
       fontFamily: {
@@ -68,20 +69,24 @@ export default {
         md: '0.625rem',   // 10px
         lg: '0.75rem',    // 12px
         xl: '0.875rem',   // 14px
-        '2xl': '1rem',    // 16px
-        '3xl': '1.25rem', // 20px
+        '2xl': '1.125rem', // 18px (Quantix reference card radius)
+        '3xl': '1.375rem', // 22px
       },
       boxShadow: {
-        // Subtle, quiet depth - no neon halos
+        // Refined depth with subtle purple/charcoal undertones
         'elev-0': 'none',
-        'elev-1': '0 1px 2px rgba(0,0,0,0.5)',
-        'elev-2': '0 4px 12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)',
-        'elev-3': '0 8px 24px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.07)',
-        'elev-4': '0 16px 40px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.08)',
+        'elev-1': '0 1px 2px rgba(0,0,0,0.6)',
+        'elev-2': '0 4px 16px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.03)',
+        'elev-3': '0 8px 30px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.05)',
+        'elev-4': '0 16px 48px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.06)',
+        // Ambient purple & lavender highlights (Quantix style)
+        'card-purple': '0 8px 32px -4px rgba(112,71,235,0.18), inset 0 1px 0 rgba(169,155,255,0.18)',
+        'glow-lavender': '0 0 20px -2px rgba(169,155,255,0.22)',
+        'glow-pill': '0 0 12px rgba(169,155,255,0.25)',
         // Button gloss / highlights
-        'btn-primary': 'inset 0 1px 0 rgba(255,255,255,0.2), 0 1px 2px rgba(0,0,0,0.4)',
-        'btn-primary-hover': 'inset 0 1px 0 rgba(255,255,255,0.25), 0 2px 6px rgba(0,0,0,0.5)',
-        'btn-secondary': 'inset 0 1px 0 rgba(255,255,255,0.06), 0 1px 2px rgba(0,0,0,0.3)',
+        'btn-primary': '0 2px 12px rgba(112,71,235,0.35), inset 0 1px 0 rgba(255,255,255,0.25)',
+        'btn-primary-hover': '0 4px 20px rgba(112,71,235,0.50), inset 0 1px 0 rgba(255,255,255,0.35)',
+        'btn-secondary': '0 1px 3px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)',
       },
       keyframes: {
         fadeIn: {

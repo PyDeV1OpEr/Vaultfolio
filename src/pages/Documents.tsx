@@ -200,7 +200,7 @@ function Select({ value, onChange, children }: { value: string; onChange: (v: st
   return (
     <select
       value={value} onChange={(e) => onChange(e.target.value)}
-      className="h-8 rounded-lg border border-ink-700 bg-ink-850 px-2 text-xs text-txt focus:outline-none focus:border-accent/60"
+      className="h-8 rounded-xl border border-ink-700 bg-ink-875 px-2.5 text-xs text-txt focus:outline-none focus:border-accent"
     >
       {children}
     </select>
@@ -212,16 +212,16 @@ function DocsToolbar({ query, setQuery, categoryFilter, setCategoryFilter, sort,
   sort: SortKey; setSort: (v: SortKey) => void; view: ViewMode; setView: (v: ViewMode) => void; count: number;
 }) {
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-2">
+    <div className="mb-4 flex flex-wrap items-center gap-2.5 bg-ink-875 p-2.5 rounded-2xl border border-ink-700">
       <div className="relative flex-1 min-w-[180px]">
-        <SearchIcon size={14} className="absolute left-2.5 top-2.5 text-txt-dim" />
+        <SearchIcon size={14} className="absolute left-3 top-2 text-txt-dim" />
         <input
           value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search documents, categories, linked assets…"
-          className="w-full h-8 rounded-lg border border-ink-700 bg-ink-850 pl-8 pr-3 text-xs placeholder:text-txt-dim focus:outline-none focus:border-accent/60"
+          className="w-full h-8 rounded-xl border border-ink-700 bg-ink-900 pl-8 pr-3 text-xs text-txt placeholder:text-txt-dim focus:outline-none focus:border-accent"
         />
       </div>
-      <span className="flex items-center gap-1 text-2xs text-txt-dim">
-        <Filter size={12} />
+      <span className="flex items-center gap-1.5 text-2xs text-txt-dim">
+        <Filter size={12} className="text-txt-muted" />
         <Select value={categoryFilter} onChange={setCategoryFilter}>
           <option value="all">All categories</option>
           {DOC_CATEGORIES.map((c) => (
@@ -229,17 +229,17 @@ function DocsToolbar({ query, setQuery, categoryFilter, setCategoryFilter, sort,
           ))}
         </Select>
       </span>
-      <span className="flex items-center gap-1 text-2xs text-txt-dim">
-        <SortAsc size={12} />
+      <span className="flex items-center gap-1.5 text-2xs text-txt-dim">
+        <SortAsc size={12} className="text-txt-muted" />
         <Select value={sort} onChange={(v) => setSort(v as SortKey)}>
           {SORTS.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
         </Select>
       </span>
-      <span className="rounded-lg border border-ink-700 flex overflow-hidden">
-        <button aria-label="Grid view" onClick={() => setView('grid')} className={`px-2 h-8 ${view === 'grid' ? 'bg-accent/15 text-accent' : 'text-txt-dim hover:bg-ink-800'}`}><LayoutGrid size={14} /></button>
-        <button aria-label="List view" onClick={() => setView('list')} className={`px-2 h-8 ${view === 'list' ? 'bg-accent/15 text-accent' : 'text-txt-dim hover:bg-ink-800'}`}><List size={14} /></button>
+      <span className="rounded-xl border border-ink-700 bg-ink-900 flex overflow-hidden p-0.5">
+        <button aria-label="Grid view" onClick={() => setView('grid')} className={`px-2.5 h-7 rounded-lg transition-all ${view === 'grid' ? 'bg-[#7047EB]/25 text-white border border-accent/40 shadow-[0_0_10px_rgba(169,155,255,0.15)]' : 'text-txt-dim hover:text-txt'}`}><LayoutGrid size={14} /></button>
+        <button aria-label="List view" onClick={() => setView('list')} className={`px-2.5 h-7 rounded-lg transition-all ${view === 'list' ? 'bg-[#7047EB]/25 text-white border border-accent/40 shadow-[0_0_10px_rgba(169,155,255,0.15)]' : 'text-txt-dim hover:text-txt'}`}><List size={14} /></button>
       </span>
-      <span className="text-2xs text-txt-dim tnum">{count} shown</span>
+      <span className="text-2xs text-txt-dim tnum px-1">{count} shown</span>
     </div>
   );
 }

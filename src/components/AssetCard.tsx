@@ -70,15 +70,15 @@ export function AssetCard({
     <Link
       to={`/portfolio/${asset.id}`}
       className={`
-        group relative block bg-ink-900 border border-ink-700/80 rounded-xl p-4
-        hover:border-ink-650 hover:bg-ink-850/80 card-lift transition-colors duration-150
+        group relative block bg-ink-875 border border-ink-700/80 rounded-2xl p-4
+        hover:border-accent/40 hover:bg-ink-850/90 card-lift transition-all duration-150
         ${asset.status === 'sold' ? 'opacity-65' : ''}
       `}
     >
       {/* Top Header */}
       <div className="flex items-start gap-3">
         <span
-          className={`w-9 h-9 rounded-lg ${colors.bg} ${colors.border} border flex items-center justify-center shrink-0 ${colors.icon}`}
+          className={`w-9 h-9 rounded-xl ${colors.bg} ${colors.border} border flex items-center justify-center shrink-0 ${colors.icon}`}
         >
           <Icon size={18} />
         </span>

@@ -106,9 +106,9 @@ export function Card({
   return (
     <div
       className={`
-        bg-ink-900 border border-ink-700 rounded-xl overflow-hidden
+        bg-ink-875 border border-ink-700 rounded-2xl overflow-hidden
         ${elevated ? 'shadow-elev-2' : ''}
-        ${interactive ? 'card-lift cursor-pointer hover:border-ink-650' : ''}
+        ${interactive ? 'card-lift cursor-pointer hover:border-ink-650 hover:bg-ink-850/80' : ''}
         ${className}
       `}
     >
@@ -452,12 +452,12 @@ export function StatCard({
   const valueColor =
     tone === 'positive' ? 'text-positive' : tone === 'negative' ? 'text-negative' : 'text-txt';
   return (
-    <Card className="p-4 sm:p-5 flex flex-col justify-between">
+    <Card className="p-4 sm:p-5 flex flex-col justify-between hover:border-ink-650 transition-colors">
       <div>
         <div className="flex items-center justify-between mb-3">
           <p className="text-xs font-medium text-txt-muted leading-none">{label}</p>
           {icon && (
-            <span className="w-7 h-7 rounded-md bg-ink-800 border border-ink-700/80 flex items-center justify-center text-txt-dim">
+            <span className="w-8 h-8 rounded-xl bg-ink-800 border border-ink-700/80 flex items-center justify-center text-accent shrink-0">
               {icon}
             </span>
           )}
@@ -644,11 +644,11 @@ export function Pill({
       onClick={onClick}
       aria-pressed={active}
       className={`
-        shrink-0 inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5
-        text-xs font-medium transition-colors duration-150
+        shrink-0 inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5
+        text-xs font-medium transition-all duration-150
         ${active
-          ? 'bg-ink-800 text-txt border-ink-650 shadow-elev-1'
-          : 'bg-ink-900 border-ink-750 text-txt-muted hover:text-txt hover:border-ink-700 hover:bg-ink-850'}
+          ? 'bg-[#7047EB]/25 text-white border-accent/45 shadow-[0_0_12px_rgba(169,155,255,0.18)]'
+          : 'bg-ink-900 border-ink-700 text-txt-muted hover:text-txt hover:border-ink-650 hover:bg-ink-800'}
       `}
     >
       {children}

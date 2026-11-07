@@ -82,13 +82,13 @@ const METAL_COLORS: Record<MetalCode, string> = {
 };
 
 const CHART_TOOLTIP_STYLE = {
-  backgroundColor: '#13161c',
-  borderColor: '#28303f',
-  borderRadius: '10px',
-  boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
+  backgroundColor: '#12131D',
+  borderColor: '#2A2C3E',
+  borderRadius: '12px',
+  boxShadow: '0 8px 32px rgba(0,0,0,0.8), 0 0 15px rgba(112,71,235,0.12)',
   fontSize: '12px',
-  color: '#ededed',
-  padding: '8px 12px',
+  color: '#F2F2F5',
+  padding: '10px 14px',
 };
 
 /* ─────────────────────────── Top-level page ─────────────────────────── */
@@ -675,18 +675,18 @@ function PriceChart({
               <stop offset="95%" stopColor={color} stopOpacity={0.0} />
             </linearGradient>
           </defs>
-          <CartesianGrid stroke="#1a2232" strokeDasharray="3 3" vertical={false} />
+          <CartesianGrid stroke="#24252C" strokeDasharray="3 3" vertical={false} />
           <XAxis
             dataKey="time"
             tickFormatter={formatXTick}
-            tick={{ fill: '#8b95a8', fontSize: 11 }}
+            tick={{ fill: '#85899B', fontSize: 11 }}
             tickLine={false}
-            axisLine={{ stroke: '#232d40' }}
+            axisLine={{ stroke: '#24252C' }}
             interval="preserveStartEnd"
           />
           <YAxis
             domain={[minP - padding, maxP + padding]}
-            tick={{ fill: '#8b95a8', fontSize: 11 }}
+            tick={{ fill: '#85899B', fontSize: 11 }}
             tickLine={false}
             axisLine={false}
             width={72}

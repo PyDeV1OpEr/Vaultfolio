@@ -38,7 +38,7 @@ bash scripts/ml-engine-tests.sh 2>&1 | tail -3
 echo "═══ 4/7 Tauri application bundle ═══"
 build_target() {
   local t="$1"
-  npx tauri build --target "$t" --config src-tauri/tauri.macos.json
+  npx tauri build --target "$t" --config src-tauri/tauri.macos.json --bundles app
 }
 case "$TARGET" in
   aarch64) build_target aarch64-apple-darwin ;;
