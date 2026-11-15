@@ -45,6 +45,7 @@ pub fn run() {
             crate::commands::intel_engine_status,
             crate::commands::intel_workspace_stats,
             crate::commands::intel_import_csv,
+            crate::commands::intel_create_dataset_from_csv,
             crate::commands::intel_get_dataset,
             crate::commands::intel_list_datasets,
             crate::commands::intel_delete_dataset,

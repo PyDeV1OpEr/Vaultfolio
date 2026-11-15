@@ -239,6 +239,30 @@ pub fn intel_import_csv(
     run_import(&app, &engine, &db, &paths, &args.src, args.name.clone())
 }
 
+#[derive(Deserialize)]
+pub struct CreateDatasetArgs {
+    pub name: String,
+    pub csv_content: String,
+}
+
+#[tauri::command]
+pub fn intel_create_dataset_from_csv(
+    app: AppHandle,
+    engine: State<'_, Engine>,
+    db: State<'_, Db>,
+    paths: State<'_, IntelPaths>,
+    args: CreateDatasetArgs,
+) -> Result<Value, String> {
+    let temp_name = format!("temp_auto_{}.csv", uuid::Uuid::new_v4());
+    let temp_path = paths.0.join("datasets").join(&temp_name);
+    fs::write(&temp_path, args.csv_content.as_bytes())
+        .map_err(|e| format!("Failed to write temporary dataset: {}", e))?;
+
+    let res = run_import(&app, &engine, &db, &paths, &temp_path.to_string_lossy(), Some(args.name));
+    let _ = fs::remove_file(&temp_path);
+    res
+}
+
 fn ensure_unique_name(conn: &MutexGuard<'_, rusqlite::Connection>, table: &str, name: &mut String) {
     let stmt = format!("SELECT COUNT(*) FROM {} WHERE name = ?1", table);
     let base = name.clone();

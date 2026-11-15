@@ -54,9 +54,9 @@ def train_supervised(
                 "The target column contains non-numeric values; regression needs a numeric target."
             )
         y = y_num.reset_index(drop=True)
-    if n_rows < 20:
+    if n_rows < 10:
         raise EngineError(
-            f"Only {n_rows} usable rows after cleaning. Training needs at least 20 rows to make a meaningful train/test split."
+            f"Only {n_rows} usable rows after cleaning. Training needs at least 10 rows to make a meaningful train/test split."
         )
 
     X_train, X_test, y_train, y_test = split_frame(X, y, spec)
@@ -77,7 +77,7 @@ def train_supervised(
         t0 = time.time()
         pipe = build_pipeline(
             algo, spec.task, numeric, categorical, datetime_cols, n_rows, spec.random_state,
-            scale_numeric=(spec.task != "regression" or algo in ("linear_regression", "ridge", "linear_svc")),
+            scale_numeric=(spec.task != "regression" or algo in ("linear_regression", "ridge", "lasso", "linear_svc")),
         )
         try:
             with warnings.catch_warnings():
@@ -137,6 +137,10 @@ def train_supervised(
     if spec.task == "regression":
         resid_std = float(np.std(np.asarray(y_test, dtype=float) - np.asarray(y_pred_best, dtype=float)))
 
+    feature_importances = extract_feature_importances(best_pipeline, features)
+    if "feature_importances" not in best["metrics"]:
+        best["metrics"]["feature_importances"] = feature_importances
+
     # Feature names for the transform output (debugging / prediction schema).
     sha = save_bundle(save_path, {
         "bundle_version": BUNDLE_VERSION,
@@ -151,6 +155,7 @@ def train_supervised(
         "metrics": {
             "test_score": best["score"],
             "residual_std": resid_std,
+            "feature_importances": feature_importances,
         },
     })
 
@@ -160,6 +165,7 @@ def train_supervised(
         ],
         "selected": best["algorithm"],
         "selected_metrics": best["metrics"],
+        "feature_importances": feature_importances,
         "row_count": int(n_rows),
         "train_rows": int(len(X_train)),
         "test_rows": int(len(X_test)),
@@ -169,6 +175,51 @@ def train_supervised(
         "bundle_version": BUNDLE_VERSION,
         "engine_version": __version__,
     }
+
+
+def extract_feature_importances(pipe: Any, feature_names: List[str]) -> List[Dict[str, Any]]:
+    """Extract and normalize feature importances from tree-based or linear models."""
+    try:
+        model = pipe.named_steps.get("model")
+        if model is None:
+            return []
+        importances = None
+        if hasattr(model, "feature_importances_"):
+            importances = model.feature_importances_
+        elif hasattr(model, "coef_"):
+            coef = np.asarray(model.coef_)
+            importances = np.mean(np.abs(coef), axis=0) if coef.ndim > 1 else np.abs(coef)
+
+        if importances is None:
+            return []
+
+        preprocessor = pipe.named_steps.get("preprocess")
+        expanded_names = None
+        if preprocessor is not None and hasattr(preprocessor, "get_feature_names_out"):
+            try:
+                raw_names = preprocessor.get_feature_names_out()
+                expanded_names = [
+                    str(n).replace("numeric__", "").replace("categorical__", "").replace("datetime__", "")
+                    for n in raw_names
+                ]
+            except Exception:
+                expanded_names = None
+
+        names = expanded_names if (expanded_names and len(expanded_names) == len(importances)) else feature_names
+        if len(names) != len(importances):
+            return []
+
+        total = float(np.sum(importances))
+        if total <= 0:
+            total = 1.0
+        scores = [
+            {"feature": str(name), "importance": round(float(imp / total), 4)}
+            for name, imp in zip(names, importances)
+        ]
+        scores.sort(key=lambda x: x["importance"], reverse=True)
+        return scores[:15]
+    except Exception:
+        return []
 
 
 def _slim(metrics: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:

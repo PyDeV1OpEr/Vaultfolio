@@ -1,245 +1,414 @@
 # Vaultfolio
 
-> A private, offline-first desktop application for recording, valuing, and understanding tangible wealth with embedded machine learning intelligence.
+A private, offline-first desktop application for recording, valuing, and understanding physical wealth — precious metals, gemstones, watches, land, vehicles, and other tangible assets.
 
-[![MIT License](https://img.shields.io/badge/License-MIT-emerald.svg)](LICENSE)
-[![Tauri v2](https://img.shields.io/badge/Tauri-v2.0-blue.svg)](https://tauri.app)
-[![React 18](https://img.shields.io/badge/React-18-cyan.svg)](https://react.dev)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.5-3178C6.svg)](https://www.typescriptlang.org)
-[![Security](https://img.shields.io/badge/Encryption-AES--256--GCM-success.svg)](SECURITY.md)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Tauri v2](https://img.shields.io/badge/Tauri-v2-24C8DB?logo=tauri&logoColor=white)](https://tauri.app)
+[![React 18](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev)
+[![TypeScript 5.6](https://img.shields.io/badge/TypeScript-5.6-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Vite 5](https://img.shields.io/badge/Vite-5-646CFF?logo=vite&logoColor=white)](https://vite.dev)
+[![Rust](https://img.shields.io/badge/Rust-stable-000000?logo=rust&logoColor=white)](https://www.rust-lang.org)
+[![CI](https://github.com/PyDeV1OpEr/Vaultfolio/actions/workflows/ci.yml/badge.svg)](https://github.com/PyDeV1OpEr/Vaultfolio/actions/workflows/ci.yml)
 
----
-
-## Overview
-
-**Vaultfolio** is an institutional-grade, privacy-first desktop platform engineered for tracking and valuing physical wealth—precious metals, investment watches, certified jewelry and gemstones, real estate, fine vehicles, and rare collectibles.
-
-Unlike conventional cloud fintech apps that expose your asset holdings to external servers, Vaultfolio operates entirely **offline-first**. All portfolio records, valuation histories, documents, and credentials remain encrypted on your device under **AES-256-GCM** derived with **scrypt**.
-
-The application features a built-in on-device machine learning engine powered by an embedded private CPython 3.12 runtime and scikit-learn, providing private classification, regression, and clustering analytics without network requests.
-
-Following the **Unslop** design methodology, Vaultfolio delivers a focused desktop experience: deep near-black surfaces (`#08090B`), dark charcoal panels with subtle purple undertones, soft white typography, elegant lavender accents (`#A99BFF`), consistent Lucide iconography, and smooth micro-interactions.
+Vaultfolio is a Tauri v2 desktop app built with React, TypeScript, and Rust. It runs a local, password-protected encrypted vault, computes valuations from a transparent method ladder, tracks international metal spot prices and USD/LKR exchange rates, stores supporting documents, and includes an on-device tabular machine-learning workspace. Cloud sync and Google Gemini features are optional and require your own credentials.
 
 ---
 
-## Download Vaultfolio
+## Contents
 
-Get the official, verified desktop release for your operating system:
-
-### macOS — Apple Silicon
-[Download Vaultfolio for macOS (Apple Silicon)](https://github.com/PyDeV1OpEr/Vaultfolio/releases/latest/download/Vaultfolio-macOS-Apple-Silicon.dmg)
-*Compatible with Apple Silicon Macs (M1, M2, M3, M4 series). Includes bundled ML runtime and drag-and-drop installation.*
-
-### Windows
-[Download Vaultfolio for Windows](https://github.com/PyDeV1OpEr/Vaultfolio/releases/latest/download/Vaultfolio-Windows-Setup.exe)
-*Compatible with 64-bit Windows 10 and Windows 11. Self-contained NSIS installer.*
-
----
-
-## Key Features
-
-- **Private Encrypted Vault**: Zero-knowledge local vault encrypted with AES-256-GCM and scrypt key derivation. Protected by a numeric PIN or master passphrase with rate limiting and automated session timeout.
-- **Master UI Transformation**: Designed using the Unslop design methodology with deep charcoal surfaces (`#08090B`, `#101116`), high-contrast soft-white typography, restrained lavender accents (`#A99BFF`), unified 18px border radii, eye-friendly contrast, and Lucide icons across every action.
-- **Dynamic Metal Mark-to-Market**: Bullion and coinage holdings (Gold bars, Silver ingots, Platinum coins) automatically compute their fine weight and revalue dynamically against live spot market rates with background updates.
-- **Valuation Centre & Tracking**: Dynamic portfolio tracking with support for manual appraisals, recorded valuation histories, reassessment schedules, and automated market-based mark-to-market calculations.
-- **Market Watch**: Real-time international precious metal reference quotes (Gold, Silver, Platinum, Palladium, and COMEX Copper). Operates out of the box with zero configuration via keyless fallback, with optional GoldAPI.io integration.
-- **Performance Analytics**: Timeframe performance metrics (7d, 30d, 90d, 1y, All) calculated strictly from recorded valuation baselines, highlighting biggest movers and portfolio staleness without mock figures.
-- **AI Insights & Market Reports**: Privacy-preserving insight engine generating structured risk assessments and portfolio summaries. Optional Gemini integration (`gemini-2.5-flash`) executes with strict schema validation; the model never invents prices or alters valuation math.
-- **Encrypted Documents Centre**: Store certificates of authenticity, insurance policies, land deeds, and purchase receipts (PDF, PNG, JPEG, WebP up to 25 MB) with sandbox preview, expiry tracking, and encrypted backup portability.
-- **Intelligence (Private ML Workspace)**: Train, evaluate, and deploy tabular machine learning models (classification, regression, clustering) entirely on-device using a bundled private CPython runtime. Complete with confusion matrices, residual curves, ROC curves, and batch inference.
+- [Screenshots](#screenshots)
+- [Features](#features)
+- [Supported assets](#supported-assets)
+- [How valuation works](#how-valuation-works)
+- [Market data](#market-data)
+- [Security and privacy](#security-and-privacy)
+- [AI features](#ai-features)
+- [Intelligence ML workspace](#intelligence-ml-workspace)
+- [Data and persistence](#data-and-persistence)
+- [Download](#download)
+- [Build from source](#build-from-source)
+- [Testing and CI](#testing-and-ci)
+- [Project structure](#project-structure)
+- [Known limitations](#known-limitations)
+- [Documentation](#documentation)
+- [License and attribution](#license-and-attribution)
 
 ---
 
-## Supported Asset Categories
+## Screenshots
 
-| Category | Typical Assets | Special Capabilities |
+| Dashboard | Portfolio |
+| :---: | :---: |
+| ![Overview dashboard](docs/screenshots/overview-dashboard.png) | ![Portfolio grid](docs/screenshots/portfolio-grid.png) |
+
+| Asset detail | Market Watch |
+| :---: | :---: |
+| ![Asset detail with valuation history](docs/screenshots/asset-detail.png) | ![Market Watch and valuations](docs/screenshots/market-valuations.png) |
+
+| Insights | Mobile |
+| :---: | :---: |
+| ![Portfolio insights](docs/screenshots/insights.png) | <img src="docs/screenshots/mobile-overview.png" alt="Mobile overview" width="240" /> <img src="docs/screenshots/mobile-navigation.png" alt="Mobile navigation" width="240" /> |
+
+---
+
+## Features
+
+### Portfolio and asset records
+- Seven asset categories with category-specific attribute forms: metal weight and purity, gem grading and certification, watch reference and serial, land extent and deed details, vehicle registration and mileage, and custom attributes.
+- Cost basis, current value, unrealized gain, and net-of-dealer-spread resale metrics.
+- Append-only valuation history per asset, with a full timeline in the asset detail view.
+- CSV and JSON export, with serials, registrations, and addresses excluded by default.
+- Responsive layout with a dedicated mobile navigation pattern.
+
+### Valuation Centre
+- Dedicated workspace for estimating, recording, and reassessing assets.
+- Needs-attention classification: needs a valuation, reassessment due, information changed, or fresh.
+- Configurable reassessment cadence: manual only, monthly, every 3 months, every 6 months, or annually.
+- Manual valuations in LKR or USD, converted with the displayed verified FX rate.
+- Optional AI-assisted appraisal for existing or new assets, with category-specific follow-up questions.
+- AI results must be explicitly approved before becoming the official estimate.
+
+### Market Watch
+- International spot references for gold, silver, platinum, palladium, and copper.
+- Works with zero configuration through a keyless fallback provider; GoldAPI.io can be added as an optional primary source.
+- Bounded on-device observation history with 1h, 12h, 24h, 7d, 30d, and 90d windows.
+- Freshness states distinguish live, recent, and stale observations.
+- Low-frequency background fetching, defaulting to roughly two runs per day.
+- USD/LKR conversion using a keyless exchange-rate source with a 24-hour cache.
+
+### Insights and reports
+- Performance panel for 7 days, 30 days, 90 days, 1 year, and all time, computed strictly from recorded valuations.
+- Biggest movers, precious-metal market moves, and valuation-freshness panels.
+- Deterministic on-device insight cards that work without any AI key.
+- Optional AI market reports and AI insights when a Gemini key is configured.
+
+### Documents
+- PDF, JPEG, PNG, and WebP files up to 25 MB.
+- Metadata stored inside the encrypted vault; binaries stored in a separate IndexedDB blob store.
+- Sandboxed PDF preview, image zoom, rename, re-categorise, relink, download, and delete.
+- Expiry tracking for insurance, warranties, and similar documents.
+- Documents are included in encrypted backups; orphaned blobs are garbage-collected on launch.
+
+### Desktop integration
+- Native window shell via Tauri v2, with a strict content security policy.
+- Encrypted local vault with PIN or password unlock.
+- Automatic lock after 15 minutes of inactivity.
+- Encrypted backup and restore.
+- Tag-triggered CI builds for macOS and Windows installers.
+
+---
+
+## Supported assets
+
+| Category | Examples | Category-specific fields |
 | :--- | :--- | :--- |
-| **Precious Metals** | Gold (XAU), Silver (XAG), Platinum (XPT), Palladium (XPD), Copper (XCU) | Weight conversions (grams, troy oz, tolas, sovereign), purity calculation (24k, 22k, 18k, 999 fineness), live reference repricing |
-| **Jewelry & Gemstones** | Rings, necklaces, loose diamonds, sapphires, rubies, emeralds | Carat weight, certification numbers (GIA, IGI), cut/color/clarity grading |
-| **Fine Timepieces** | Luxury and vintage mechanical watches | Reference numbers, serial records, movement caliber, box & papers tracking |
-| **Real Estate & Land** | Commercial, residential, agricultural land | Surface area units (sq ft, sq m, acres, Sri Lankan perches), deed records |
-| **Vehicles** | Classic automobiles, motorcycles, exotic cars | VIN, mileage logs, service history linkages, condition ratings |
-| **Custom & Collectibles** | Rare books, art, numismatics, fine wine | Custom metric definitions, provenance documentation |
+| Gold and silver | Bars, coins, bullion, jewellery | Weight in g, kg, troy oz, or tola; karat or fineness purity |
+| Gems and jewellery | Diamonds, sapphires, rubies, rings | Carat, cut, colour, clarity, certification |
+| Watches | Luxury and vintage timepieces | Reference, serial, movement, condition, box and papers |
+| Land and property | Residential, commercial, agricultural | Extent in perches, sq ft, or sq m; deed and location details |
+| Cars | Classic, modern, exotic | Make, model, year, mileage, registration, condition |
+| Motorcycles | Road, classic, collector | Make, model, year, mileage, registration, condition |
+| Other | Collectibles and custom assets | User-defined attributes and notes |
 
 ---
 
-## Visual Tour
+## How valuation works
 
-### Dashboard Overview
-![Overview Dashboard](docs/screenshots/overview-dashboard.png)
+Valuation logic lives in `src/lib/valuation.ts` and `src/lib/spotValue.ts`. Every resolved value carries its method, source, confidence, and a human-readable explanation.
 
-### Portfolio Holdings & Valuation
-![Portfolio Grid](docs/screenshots/portfolio-grid.png)
+Resolution order:
 
-### Asset Detail & Historical Valuations
-![Asset Detail](docs/screenshots/asset-detail.png)
+1. An explicit user valuation, when present.
+2. A market-based computation for precious metals with enough data.
+3. The most recent recorded valuation.
+4. `unavailable` when none of the above apply.
 
-### Market Watch & Reference Quotes
-![Market Valuations](docs/screenshots/market-valuations.png)
-
-### Deep Performance Insights
-![Insights](docs/screenshots/insights.png)
-
----
-
-## Technology Stack
-
-### Frontend & UI
-- **Framework**: React 18 with TypeScript 5.5
-- **Styling**: Tailwind CSS with custom Unslop design tokens
-- **Routing**: React Router 6
-- **Charts & Data Viz**: Recharts with custom SVG gradients and tooltips
-- **Icons**: Lucide React
-- **Build System**: Vite 5.4
-
-### Desktop Shell & Native Layer
-- **Shell**: Tauri v2
-- **Core Language**: Rust (1.78+)
-- **Security**: Hardened runtime, sandboxed IPC, scoped filesystem capability permissions
-- **Packaging**: macOS DMG (`hdiutil`, ad-hoc/Developer ID signed), Windows NSIS installer
-
-### Intelligence ML Engine
-- **Runtime**: Pinned standalone CPython 3.12 (astral-sh/python-build-standalone)
-- **Data Science Libraries**: NumPy, Pandas, Scikit-learn, SciPy, Joblib
-- **Inter-process Communication**: Non-blocking NDJSON over standard streams (stdin/stdout) managed by Rust
-
----
-
-## Security & Offline-First Architecture
-
-Vaultfolio is designed with a defense-in-depth model where **your data never leaves your computer**:
-
-1. **Zero Telemetry**: No tracking pixels, analytics cookies, remote crash reporting, or phone-home requests.
-2. **Envelope Encryption**: Vault data is encrypted using AES-256-GCM. Cryptographic keys are derived from the user PIN or passphrase using `scrypt` with secure salt parameters.
-3. **Sealed Credentials**: External API keys (e.g., Gemini or GoldAPI) are sealed within the encrypted vault envelope and never written in plaintext to configuration files.
-4. **Air-Gapped ML Processing**: The bundled machine learning workspace executes scripts via an internal Python binary located strictly within the application bundle resources, preventing external network calls.
-5. **Portable Encrypted Backups**: Backups export as password-protected encrypted archives, ensuring secure transfer across workstations.
-
----
-
-## Installation & Setup
-
-### macOS (Apple Silicon)
-1. Download `Vaultfolio-macOS-Apple-Silicon.dmg` from the [Download section](#download-vaultfolio).
-2. Double-click the DMG to open it.
-3. Drag the **Vaultfolio** application icon into the **Applications** folder shortcut.
-4. Launch Vaultfolio from Applications or Spotlight.
-   *Note: If macOS Gatekeeper displays a developer notice on first launch, Control-click the application icon, choose **Open**, and confirm.*
-
-### Windows
-1. Download `Vaultfolio-Windows-Setup.exe` from the [Download section](#download-vaultfolio).
-2. Run the installer and complete the setup wizard.
-3. Launch **Vaultfolio** from the Start Menu or desktop shortcut.
-   *Note: If Windows SmartScreen appears, click **More info** followed by **Run anyway**.*
-
----
-
-## Project Structure
+Precious-metal spot computation uses:
 
 ```
-Vaultfolio/
-├── .github/workflows/       # CI/CD release and verification pipelines
-├── docs/                    # Technical documentation and UI screenshots
-├── ml-engine/               # Offline Python ML engine & dependencies
-│   ├── service/             # NDJSON Python microservice (models, train, predict)
-│   ├── samples/             # Bundled CC0 tabular datasets (gems, pricing, clustering)
-│   └── runtime-lock.txt     # Pinned Python package dependencies
-├── scripts/                 # Build and release automation scripts
-│   ├── build-ml-runtime.sh  # Standalone CPython environment packager
-│   ├── release-macos.sh     # Apple Silicon packaging and verification
-│   └── sample-smoke.py      # End-to-end ML integration test suite
-├── src/                     # React + TypeScript frontend
-│   ├── components/          # Shared UI primitives, AppLayout, Charts, Modals
-│   ├── lib/                 # Crypto (AES-GCM), database, MarketWatch, validation
-│   ├── pages/               # Views: Overview, Portfolio, MarketWatch, Insights,
-│   │                        # AI Insights, Documents, Settings, Intelligence
-│   ├── index.css            # Unslop typography and base design rules
-│   └── App.tsx              # Error boundary and primary routing
-├── src-tauri/               # Rust desktop shell
-│   ├── capabilities/        # Tauri v2 security policies and IPC filters
-│   ├── src/                 # Rust commands, ML engine process supervisor, SQLite/store
-│   ├── tauri.conf.json      # Tauri application definition
-│   └── Cargo.toml           # Rust dependencies
-└── tailwind.config.js       # Unslop design tokens (graphite palette, mint accents)
+value_lkr = spot_per_gram_usd × grams × purity × usd_lkr
 ```
+
+Unit constants are centralized in `src/lib/types.ts`:
+
+| Unit | Conversion |
+| :--- | :--- |
+| Troy ounce | 31.1034768 g |
+| Tola | 11.6638038 g |
+| Perch to sq ft | 272.25 |
+| Perch to sq m | 25.29285 |
+| Pound to grams | 453.59237 |
+
+Purity parsing accepts karats (`24k`, `22k`), decimal fractions (`.999`), named finenesses (`fine`, `sterling`, `britannia`), three-digit millesimal values, and explicit parts-per-thousand.
 
 ---
 
-## Building from Source
+## Market data
+
+Market Watch uses two providers:
+
+- **GoldAPI.io** — optional primary source. Requires a user-supplied key and supports gold, silver, platinum, and palladium.
+- **gold-api.com** — keyless fallback. Supports gold, silver, platinum, palladium, and copper. Copper is quoted as COMEX HG in USD per pound and mapped to XCU.
+
+Provider observations are validated before storage; zero, negative, or impossible values are rejected. History is kept in `localStorage` with a bounded number of observations per metal and is collected forward from use, not backfilled from the provider.
+
+Exchange rates come from `https://open.er-api.com/v6/latest/USD`. The rate is cached for 24 hours and is never presented as live when it is cached.
+
+These are international USD reference quotes and converted LKR values. They are not Sri Lankan dealer prices, and the app labels them accordingly.
+
+---
+
+## Security and privacy
+
+### Local vault
+
+- The vault payload is encrypted with **AES-256-GCM** using `@noble/ciphers`.
+- A random 256-bit data encryption key (DEK) is generated per vault.
+- The DEK is wrapped by a key encryption key derived from the user's password with **scrypt** (`N = 2^15`, `r = 8`, `p = 1`) via `@noble/hashes`.
+- An optional PIN can wrap the same DEK with a separate scrypt-derived key.
+- Only verifiers are stored; the password and PIN themselves are never persisted.
+- Domain separation is applied through additional authenticated data (AAD).
+- The app locks after 15 minutes of inactivity in local mode.
+
+### Lockout behaviour
+
+| Control | Limit | Cooldown |
+| :--- | :--- | :--- |
+| PIN attempts | 5 failures | 5 minutes |
+| Recovery attempts | 5 failures | 15 minutes |
+
+### Network boundaries
+
+- Local mode makes no telemetry, analytics, or crash-reporting requests.
+- Market Watch, FX, and Gemini requests occur only when those features are used or enabled.
+- Cloud mode is optional and connects to a Supabase project that you own.
+- In cloud mode, the Supabase anon key is public by design; Row Level Security is the access boundary.
+- The Gemini API key is stored encrypted under the vault DEK.
+
+### Honest scope
+
+- There is no end-to-end encryption and no independently audited security certification.
+- The local vault is encrypted at rest, but the application decrypts it in memory while unlocked.
+- Release installers are Developer ID signed and notarized only when the repository's Apple secrets are configured; otherwise macOS builds are ad-hoc signed and Windows builds may trigger SmartScreen.
+
+See [SECURITY.md](SECURITY.md) for the reporting process and the current security posture.
+
+---
+
+## AI features
+
+AI is optional. Without a Gemini key, the app remains fully functional, and reports show setup guidance instead of generated content.
+
+- **Provider:** Google Gemini REST API (`generativelanguage.googleapis.com/v1beta`).
+- **Default model:** `gemini-2.5-flash`; `gemini-2.5-flash-lite` and `gemini-2.5-pro` are selectable.
+- **Structured output:** native `responseSchema` JSON mode plus Zod validation on arrival.
+- **Pricing boundary:** the model never supplies prices, exchange rates, or balances. Numeric values are assembled app-side from the same on-device data used elsewhere.
+- **Timeouts:** 60 seconds per request.
+- **Evidence:** AI insights cite evidence IDs, and appraisal evidence is labelled `verified`, `model_knowledge`, or `user_supplied`.
+
+Implemented AI surfaces:
+
+| Feature | Source | Notes |
+| :--- | :--- | :--- |
+| Market reports | `src/lib/reports.ts` | Assembled from stored market observations; history in local storage |
+| AI insights | `src/lib/insights.ts` | Historical context and deterministic on-device fallback |
+| Valuation Centre appraisal | `src/lib/aiValuation.ts` | Range-clamped app-side; explicit approval required |
+
+---
+
+## Intelligence ML workspace
+
+The Intelligence workspace is an offline-first, automated machine-learning and analytics studio tailored for tangible wealth records.
+
+- **One-Click Automated Analysis:** No manual CSV upload required. Users can trigger complete end-to-end extraction and training directly from active vault assets with a single click.
+- **Automated Dataset Extraction:** Extracts physical asset specs (purity carats, fine weight, stone carats, condition grade, age), financial metrics (acquisition cost, current valuation, gain/loss, holding days, CAGR return), and valuation method reliability while strictly isolating identifiers to prevent target leakage.
+- **Automated Exploratory Data Analysis (EDA):** Calculates complete descriptive statistics (mean, std, median, IQR, skewness, Tukey's fences outlier detection), frequency distributions, and pairwise Pearson correlation matrices.
+- **Data Quality Score (0–100):** Transparent scoring evaluating completeness (40%), sample adequacy (40%), and information diversity (20%) with constructive improvement guidance.
+- **Candidate Model Benchmarking:** Trains and benchmarks multiple candidate estimators (Random Forest, Extra Trees, Gradient Boosting, Ridge, Lasso, and Linear/Logistic models; optional XGBoost fallback) reporting honest test-set metrics ($R^2$, RMSE, MAE, Accuracy, F1, Log Loss).
+- **Interactive Parameter Simulator:** What-if parameter simulator with live predicted valuations and 90% confidence bands based on trained residuals.
+- **Privacy-Preserving AI Insights:** Optional Gemini integration receives exclusively aggregated statistical summaries (never raw identifiers, asset names, or private records). Operates 100% offline via local deterministic statistical intelligence when offline or without an API key.
+- **Storage & History:** Preserves historical runs under `vaultfolio.intelligence.runs.v2` for retrospective review, model comparison, and CSV export.
+- **Desktop Runtime:** Bundled CPython 3.12 with NumPy, Pandas, SciPy, and scikit-learn communicating via local NDJSON IPC managed by Tauri Rust. Manual CSV import and custom datasets remain available for advanced users.
+
+---
+
+## Data and persistence
+
+Vaultfolio supports two storage modes.
+
+### Local mode (default)
+
+- Portfolio, settings, and document metadata are stored in an encrypted vault under `vaultfolio.vault.v1` in `localStorage`.
+- Legacy plaintext data under `vaultfolio.local.v1` is migrated on first use.
+- Document binaries are stored in IndexedDB (`vaultfolio-docs` / `files`).
+- Backups use the `vaultfolio-backup` v1 format and can be protected with `AES-256-GCM + scrypt`.
+- Demo data is available in development builds and is clearly labelled.
+
+### Cloud mode (optional)
+
+Cloud mode connects to your own Supabase project. The repository includes `supabase/schema.sql` with:
+
+- Tables: `vaultfolio_profiles`, `vaultfolio_assets`, `vaultfolio_valuations`, `vaultfolio_market_overrides`.
+- Storage bucket: `asset-files`.
+- Row Level Security policies scoped to `auth.uid()`.
+
+Vaultfolio does not operate a hosted production instance holding user data. See [DESKTOP.md](DESKTOP.md) for packaging details and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the data-flow description.
+
+---
+
+## Download
+
+The latest desktop release is **v1.2.0**.
+
+| Platform | Download |
+| :--- | :--- |
+| macOS — Apple Silicon | [Vaultfolio-macOS-Apple-Silicon.dmg](https://github.com/PyDeV1OpEr/Vaultfolio/releases/latest/download/Vaultfolio-macOS-Apple-Silicon.dmg) |
+| Windows — x64 | [Vaultfolio-Windows-Setup.exe](https://github.com/PyDeV1OpEr/Vaultfolio/releases/latest/download/Vaultfolio-Windows-Setup.exe) |
+
+SHA-256 checksums are published in each release's notes on the [releases page](https://github.com/PyDeV1OpEr/Vaultfolio/releases).
+
+### First launch
+
+- **macOS:** if Gatekeeper shows a warning, right-click the app and choose **Open**. Builds are notarized only when Apple signing secrets are configured in CI.
+- **Windows:** if SmartScreen appears, choose **More info** → **Run anyway**.
+- The app works fully offline. Create a local encrypted vault on first launch; no account or API key is required.
+
+---
+
+## Build from source
 
 ### Prerequisites
-- **Node.js**: v20 or v22 (Node 22 LTS recommended)
-- **Rust**: Stable toolchain (`rustup update stable`)
-- **Python**: Python 3.12 (only required if building custom ML engines from scratch)
 
-### Step 1: Clone and Install
+- Node.js 20 or 22 (Node 22 is used in CI)
+- Stable Rust toolchain (`rustup`)
+- macOS: Xcode Command Line Tools (`xcode-select --install`)
+- Windows: WebView2 runtime is installed by the NSIS bootstrapper
+- Python 3.12 only if you are rebuilding the bundled ML runtime
+
+### Install and verify
+
 ```bash
 git clone https://github.com/PyDeV1OpEr/Vaultfolio.git
 cd Vaultfolio
 npm ci
-```
 
-### Step 2: Quality Gate Validation
-```bash
-# Verify TypeScript types
 npm run typecheck
-
-# Run Vitest test suites (182 unit & integration tests)
 npm test
-
-# Build production bundle
 npm run build
 ```
 
-### Step 3: Run in Development Mode
+### Development
+
 ```bash
-# Run web client only
+# Browser-only frontend
 npm run dev
 
-# Run desktop application with hot reload
+# Native desktop window with hot reload
 npm run desktop:dev
 ```
 
-### Step 4: Build Desktop Installers
-```bash
-# Package macOS DMG (Apple Silicon)
-bash scripts/release-macos.sh aarch64
+### Desktop installers
 
-# Package Windows NSIS Setup (on Windows host)
+```bash
+# macOS: build the bundled ML runtime, then the DMG
+npm run desktop:build:macos
+
+# Windows: run on a Windows host
 npm run desktop:build:windows
 ```
 
+The macOS build script targets Apple Silicon by default (`scripts/build-ml-runtime.sh --arch aarch64-apple-darwin`). Windows installers cannot be cross-compiled from macOS; use a Windows machine or the tag-triggered release workflow.
+
+### Environment variables
+
+All `VITE_*` variables are embedded in the client bundle at build time and must be treated as public. Copy `.env.example` to `.env.local` and fill in only what you need:
+
+| Variable | Purpose |
+| :--- | :--- |
+| `VITE_SUPABASE_URL` | Supabase project URL for optional cloud mode |
+| `VITE_SUPABASE_ANON_KEY` | Supabase anon key (public by design; RLS enforces access) |
+| `VITE_METALS_API_URL` | Optional JSON price provider |
+| `VITE_METALS_API_LABEL` | Display label for that provider |
+| `VITE_GOLDAPI_KEY` | Optional GoldAPI.io primary key for Market Watch |
+
+The keyless gold-api.com fallback requires no configuration.
+
 ---
 
-## Verification & Checksums
+## Testing and CI
 
-You can verify the authenticity of release artifacts using SHA-256 hashes:
+- **Unit tests:** Vitest, across 12 test files in `src/lib/`.
+- **Type checking:** `tsc --noEmit`.
+- **Production build:** `tsc && vite build`.
+- **CI:** `.github/workflows/ci.yml` runs typecheck, tests, and build on every push and pull request.
+- **Release:** `.github/workflows/release.yml` runs on `v*` tags, builds macOS arm64/x64 DMGs and a Windows x64 NSIS installer, and publishes them to a GitHub Release.
+- **Signing:** macOS Developer ID signing and notarization activate only when the five `APPLE_*` secrets are configured; otherwise the workflow uses the ad-hoc path.
 
-```bash
-# macOS
-shasum -a 256 Vaultfolio-macOS-Apple-Silicon.dmg
+ML engine tests can be run with `npm run ml-engine:test` after the runtime is built.
 
-# Windows (PowerShell)
-Get-FileHash -Algorithm SHA256 Vaultfolio-Windows-Setup.exe
+---
+
+## Project structure
+
+```
+Vaultfolio/
+├── .github/workflows/      # CI and tag-triggered release pipelines
+├── docs/                   # Architecture notes and screenshots
+├── ml-engine/              # Bundled CPython runtime, service, samples, licences
+├── scripts/                # ML runtime build and release automation
+├── src/
+│   ├── components/         # Shared UI, layout, charts, modals
+│   ├── lib/                # Crypto, valuation, market data, AI, documents, storage
+│   ├── pages/              # Overview, Portfolio, Market Watch, Insights, Documents,
+│   │                       # Valuation Centre, Settings, Intelligence
+│   ├── store/              # Zustand data store
+│   ├── App.tsx             # Routing, app modes, error boundary, auto-lock
+│   └── index.css           # Base styles and design tokens
+├── src-tauri/
+│   ├── capabilities/       # Tauri v2 capability policy
+│   ├── src/                # Rust shell, SQLite store, ML engine supervisor
+│   ├── tauri.conf.json     # Window, security, and bundle configuration
+│   └── Cargo.toml
+├── supabase/schema.sql     # Cloud schema, RLS policies, storage bucket
+├── package.json
+└── tailwind.config.js
 ```
 
-Current release verified checksums:
-- **macOS Apple Silicon**: `16faf88ac1f80a13512518805d544bc0234481f70f5081eb812927aa7d7e30d1`
-- **Windows Setup**: `0fac6c3feb2a9b8b64230e5e79eebc7d2fe6fc61f64e6c57610715d96968d8d0`
+### Application routes
+
+`/` dashboard · `/portfolio` · `/market-watch` · `/reports` · `/insights` · `/ai-insights` · `/documents` · `/intelligence` (datasets, train, models, predict, history, docs) · `/settings`
 
 ---
 
-## Troubleshooting
+## Known limitations
 
-- **Market Watch Data**: Real-time quotes fetch automatically from the keyless `gold-api.com` fallback. A custom `VITE_GOLDAPI_KEY` is completely optional.
-- **PIN Unlock Issues**: In the event of a forgotten PIN, use the master vault recovery password established during initialization.
-- **Offline ML Training Duration**: Model training on large custom datasets (10,000+ rows) runs on CPU using scikit-learn. The interface shows progress indicators; training times depend on local CPU core performance.
-- **Documents Preview**: Embedded previews for PDF and image attachments render within an isolated sandboxed iframe. Ensure files are under the 25 MB threshold.
+- **Not financial advice.** Valuations are estimates, and market references are informational.
+- **Metal prices are international references.** Converted LKR values are not local dealer quotes and exclude making charges, taxes, and spreads unless you enter them.
+- **AI is optional and rate-limited by your own key.** An exhausted quota does not affect the local vault, portfolio, or Market Watch.
+- **Intelligence requires the desktop build.** The browser-only development build does not include the bundled Python runtime.
+- **Cloud mode is bring-your-own Supabase.** There is no Vaultfolio-hosted account service.
+- **No independent security audit.** The encryption design is documented and tested but not certified.
+- **Desktop signing depends on CI secrets.** Without Apple credentials, macOS builds are ad-hoc signed; without a Windows certificate, SmartScreen may warn.
+- **Demo mode is for development.** It is labelled and not intended for real records.
 
 ---
 
-## Attribution & License
+## Documentation
 
-- **Design Methodology**: Inspired by the clean, restrained principles of [Unslop](https://github.com/heydamir/unslop.git).
-- **Icons**: [Lucide Icons](https://lucide.dev) (ISC License).
-- **License**: Released under the [MIT License](LICENSE).
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — system, data flow, and module responsibilities
+- [DESKTOP.md](DESKTOP.md) — Tauri packaging, signing, and platform notes
+- [SECURITY.md](SECURITY.md) — vulnerability reporting and security posture
+- [CONTRIBUTING.md](CONTRIBUTING.md) — contribution workflow
+- [CHANGELOG.md](CHANGELOG.md) — release history
+- [supabase/schema.sql](supabase/schema.sql) — cloud schema and RLS policies
+
+---
+
+## License and attribution
+
+Released under the [MIT License](LICENSE). Copyright (c) 2026 Mohammed Unais.
+
+- Icons: [Lucide](https://lucide.dev) (ISC License).
+- Typeface: [Inter](https://rsms.me/inter/) via `@fontsource/inter` (SIL Open Font License).
+- Design direction informed by the [Unslop](https://github.com/heydamir/unslop) principles.
+- Bundled ML runtime licences are listed in `ml-engine/licenses/`.

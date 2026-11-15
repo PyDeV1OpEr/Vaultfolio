@@ -21,13 +21,15 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.compose import ColumnTransformer
 from sklearn.decomposition import PCA
 from sklearn.ensemble import (
+    ExtraTreesClassifier,
+    ExtraTreesRegressor,
     GradientBoostingClassifier,
     GradientBoostingRegressor,
     RandomForestClassifier,
     RandomForestRegressor,
 )
 from sklearn.impute import SimpleImputer
-from sklearn.linear_model import LogisticRegression, Ridge, LinearRegression
+from sklearn.linear_model import Lasso, LinearRegression, LogisticRegression, Ridge
 from sklearn.metrics import (
     accuracy_score,
     confusion_matrix,
@@ -47,6 +49,12 @@ from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 from . import __version__
 from .csvio import EngineError, load_csv, normalize_blank_strings
 
+try:
+    from xgboost import XGBClassifier, XGBRegressor
+    HAS_XGBOOST = True
+except Exception:
+    HAS_XGBOOST = False
+
 BUNDLE_VERSION = 2
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -59,37 +67,52 @@ CLASSIFIERS: Dict[str, Tuple[type, bool]] = {
     "random_forest_classifier": (RandomForestClassifier, False),
     "decision_tree_classifier": (DecisionTreeClassifier, False),
     "gradient_boosting_classifier": (GradientBoostingClassifier, False),
+    "extra_trees_classifier": (ExtraTreesClassifier, False),
     "linear_svc": (None, True),  # handled specially (probability calibration)
 }
+if HAS_XGBOOST:
+    CLASSIFIERS["xgboost_classifier"] = (XGBClassifier, False)
 
 REGRESSORS: Dict[str, Tuple[type, bool]] = {
     "linear_regression": (LinearRegression, True),
     "ridge": (Ridge, True),
+    "lasso": (Lasso, True),
     "random_forest_regressor": (RandomForestRegressor, False),
     "decision_tree_regressor": (DecisionTreeRegressor, False),
     "gradient_boosting_regressor": (GradientBoostingRegressor, False),
+    "extra_trees_regressor": (ExtraTreesRegressor, False),
 }
+if HAS_XGBOOST:
+    REGRESSORS["xgboost_regressor"] = (XGBRegressor, False)
 
 ALGORITHM_LABELS: Dict[str, str] = {
     "logistic_regression": "Logistic Regression",
     "random_forest_classifier": "Random Forest",
     "decision_tree_classifier": "Decision Tree",
     "gradient_boosting_classifier": "Gradient Boosting",
+    "extra_trees_classifier": "Extra Trees Classifier",
+    "xgboost_classifier": "XGBoost Classifier",
     "linear_svc": "Linear SVC",
     "linear_regression": "Linear Regression",
     "ridge": "Ridge Regression",
+    "lasso": "Lasso Regression",
     "random_forest_regressor": "Random Forest Regressor",
     "decision_tree_regressor": "Decision Tree Regressor",
     "gradient_boosting_regressor": "Gradient Boosting Regressor",
+    "extra_trees_regressor": "Extra Trees Regressor",
+    "xgboost_regressor": "XGBoost Regressor",
     "kmeans": "K-Means",
     "dbscan": "DBSCAN",
 }
 
 DEFAULT_COMPARE_SETS: Dict[str, List[str]] = {
-    "classification": ["logistic_regression", "random_forest_classifier", "decision_tree_classifier", "gradient_boosting_classifier"],
-    "regression": ["linear_regression", "ridge", "random_forest_regressor", "decision_tree_regressor", "gradient_boosting_regressor"],
+    "classification": ["logistic_regression", "random_forest_classifier", "decision_tree_classifier", "gradient_boosting_classifier", "extra_trees_classifier"],
+    "regression": ["linear_regression", "ridge", "lasso", "random_forest_regressor", "decision_tree_regressor", "gradient_boosting_regressor", "extra_trees_regressor"],
     "clustering": ["kmeans", "dbscan"],
 }
+if HAS_XGBOOST:
+    DEFAULT_COMPARE_SETS["classification"].append("xgboost_classifier")
+    DEFAULT_COMPARE_SETS["regression"].append("xgboost_regressor")
 
 
 class DateToNumeric(BaseEstimator, TransformerMixin):
@@ -151,6 +174,18 @@ def make_estimator(name: str, task: str, n_rows: int, random_state: int, n_featu
             return DecisionTreeClassifier(max_depth=caps["max_depth"], random_state=random_state)
         if name == "gradient_boosting_classifier":
             return GradientBoostingClassifier(random_state=random_state)
+        if name == "extra_trees_classifier":
+            return ExtraTreesClassifier(
+                n_estimators=caps["n_estimators"], max_depth=caps["max_depth"],
+                n_jobs=1, random_state=random_state,
+            )
+        if name == "xgboost_classifier":
+            if not HAS_XGBOOST:
+                raise EngineError("XGBoost is not available in the current environment.")
+            return XGBClassifier(
+                n_estimators=caps["n_estimators"], max_depth=6,
+                random_state=random_state, eval_metric="logloss",
+            )
         if name == "linear_svc":
             from sklearn.svm import LinearSVC
             from sklearn.calibration import CalibratedClassifierCV
@@ -164,6 +199,8 @@ def make_estimator(name: str, task: str, n_rows: int, random_state: int, n_featu
             return LinearRegression()
         if name == "ridge":
             return Ridge(alpha=1.0, random_state=random_state)
+        if name == "lasso":
+            return Lasso(alpha=1.0, random_state=random_state)
         if name == "random_forest_regressor":
             return RandomForestRegressor(
                 n_estimators=caps["n_estimators"], max_depth=caps["max_depth"],
@@ -173,6 +210,18 @@ def make_estimator(name: str, task: str, n_rows: int, random_state: int, n_featu
             return DecisionTreeRegressor(max_depth=caps["max_depth"], random_state=random_state)
         if name == "gradient_boosting_regressor":
             return GradientBoostingRegressor(random_state=random_state)
+        if name == "extra_trees_regressor":
+            return ExtraTreesRegressor(
+                n_estimators=caps["n_estimators"], max_depth=caps["max_depth"],
+                n_jobs=1, random_state=random_state,
+            )
+        if name == "xgboost_regressor":
+            if not HAS_XGBOOST:
+                raise EngineError("XGBoost is not available in the current environment.")
+            return XGBRegressor(
+                n_estimators=caps["n_estimators"], max_depth=6,
+                random_state=random_state,
+            )
         raise EngineError(f"Unknown regression algorithm: {name}")
     raise EngineError(f"Algorithm {name} is not applicable to task {task}")
 

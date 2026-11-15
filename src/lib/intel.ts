@@ -178,6 +178,8 @@ export const intel = {
 
   pickCsv: () => invoke<string | null>('intel_pick_csv'),
   importCsv: (src: string, name?: string) => invoke<DatasetDetail>('intel_import_csv', { args: { src, name } }),
+  createDatasetFromCsv: (args: { name: string; csv_content: string }) =>
+    invoke<DatasetDetail>('intel_create_dataset_from_csv', { args }),
   listDatasets: () => invoke<DatasetSummary[]>('intel_list_datasets'),
   getDataset: (id: string) => invoke<DatasetDetail>('intel_get_dataset', { id }),
   deleteDataset: (id: string) => invoke<unknown>('intel_delete_dataset', { id }),
