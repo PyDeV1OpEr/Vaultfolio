@@ -13,6 +13,19 @@
 
 ---
 
+## ⬇️ Download Vaultfolio v1.2.0
+
+> **Latest release** — Dark Luxury UI · Dynamic Metal Valuations · Intelligence 2.0 AutoML Studio
+
+| Platform | Installer | Size |
+|---|---|---|
+| 🍎 **macOS Apple Silicon** (M1 / M2 / M3 / M4) | [**Download DMG**](https://github.com/PyDeV1OpEr/Vaultfolio/releases/download/v1.2.0/Vaultfolio-macOS-Apple-Silicon.dmg) | ~192 MB |
+| 🪟 **Windows x64** | [**Download EXE**](https://github.com/PyDeV1OpEr/Vaultfolio/releases/download/v1.2.0/Vaultfolio-Windows-Setup.exe) | ~4 MB |
+
+[View all releases →](https://github.com/PyDeV1OpEr/Vaultfolio/releases)
+
+---
+
 ## Table of Contents
 
 - [Overview & Problem Statement](#overview--problem-statement)
