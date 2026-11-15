@@ -51,11 +51,7 @@ export interface OrchestrationOptions {
   onProgress?: (progress: StageProgress) => void;
 }
 
-export interface OrchestrationResult {
-  runId: string;
-  timestamp: string;
-  dataset: ExtractionResult;
-  eda: EdaSummary;
+export interface TrainModelResult {
   task: 'regression' | 'classification' | 'clustering';
   target: string;
   featuresUsed: string[];
@@ -68,8 +64,15 @@ export interface OrchestrationResult {
   };
   comparison: CompareRow[];
   topFeatures: { feature: string; importance: number }[];
-  report: IntelligenceReport;
   savedModelId?: string;
+}
+
+export interface OrchestrationResult extends TrainModelResult {
+  runId: string;
+  timestamp: string;
+  dataset: ExtractionResult;
+  eda: EdaSummary;
+  report: IntelligenceReport;
 }
 
 /** Check if running inside desktop Tauri shell */
@@ -77,6 +80,174 @@ function isTauriShell(): boolean {
   if (typeof window === 'undefined') return false;
   const w = window as unknown as { __TAURI_INTERNALS__?: unknown; __TAURI__?: unknown };
   return !!(w.__TAURI_INTERNALS__ || w.__TAURI__);
+}
+
+/**
+ * STEP 1: Generate dataset directly from active portfolio assets and historical valuation records.
+ */
+export function generateCurrentDataset(
+  assets: Asset[],
+  records: ValuationRecord[] = [],
+  market: MarketSnapshot | null = null,
+  documents: DocumentRecord[] = []
+): { dataset: ExtractionResult; eda: EdaSummary } {
+  const dataset = extractPortfolioAssetDataset(assets, records, market, documents);
+  if (dataset.rowCount === 0) {
+    throw new Error('Your portfolio contains no active assets to analyze. Add at least one asset to generate a dataset.');
+  }
+  const eda = runAutomatedEda(dataset);
+  return { dataset, eda };
+}
+
+/**
+ * STEP 2: Train candidate models on the prepared dataset and benchmark performance.
+ */
+export async function trainModelOnPreparedDataset(
+  dataset: ExtractionResult,
+  eda: EdaSummary,
+  options: {
+    taskOverride?: 'regression' | 'classification' | 'clustering';
+    targetOverride?: string;
+    onProgress?: (stage: OrchestrationStage, stageIndex: number, title: string, detail: string, pct: number) => void;
+  } = {}
+): Promise<TrainModelResult> {
+  const { taskOverride, targetOverride, onProgress } = options;
+  const emit = onProgress ?? (() => {});
+
+  // Resolve task & target
+  const task = taskOverride ?? dataset.recommendedTask;
+  let target = targetOverride ?? dataset.recommendedTarget;
+  if (task === 'clustering') target = '';
+
+  // Select features excluding target and identifiers
+  const featuresUsed = dataset.columns
+    .filter((c) => c.name !== target && c.type !== 'identifier' && !c.isLeakageRisk)
+    .map((c) => c.name);
+
+  emit('cleaning', 4, 'Cleaning & Preprocessing', 'Imputing missing values, encoding categoricals, validating targets…', 50);
+  await new Promise((r) => setTimeout(r, 120));
+
+  emit('eda', 5, 'Exploratory Analysis', 'Computing feature statistics, correlation matrix, and data quality score…', 65);
+  await new Promise((r) => setTimeout(r, 120));
+
+  emit('training', 6, 'Training Models', `Benchmarking candidate ${task} algorithms on held-out data…`, 75);
+
+  let comparison: CompareRow[] = [];
+  let bestModel: TrainModelResult['bestModel'];
+  let topFeatures: { feature: string; importance: number }[] = [];
+  let savedModelId: string | undefined;
+
+  if (isTauriShell()) {
+    try {
+      // Ingest into SQLite dataset table
+      const imported = await intel.createDatasetFromCsv({
+        name: `${dataset.datasetName}_${new Date().toISOString().slice(0, 10)}`,
+        csv_content: dataset.csvContent,
+      });
+
+      // Train using Python ML Engine
+      const trained = await intel.train({
+        dataset_id: imported.id,
+        task,
+        target: target || undefined,
+        features: featuresUsed,
+        test_size: 0.2,
+        model_name: `Auto_${task}_${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+      });
+
+      savedModelId = trained.id;
+      comparison = (trained.comparison ?? []).map((c) => ({
+        algorithm: c.algorithm,
+        label: c.label,
+        score: c.score,
+        duration_seconds: c.duration_seconds,
+        metrics: c.metrics,
+        saved: c.saved,
+        error: c.error,
+      }));
+
+      bestModel = {
+        algorithm: trained.algorithm,
+        label: trained.algorithm_label,
+        scoreLabel: trained.scoring_label ?? (task === 'regression' ? 'R² Score' : 'F1 Score'),
+        score: trained.scoring ? Math.round(trained.scoring * 1000) / 1000 : 0,
+        metrics: trained.metrics ?? {},
+      };
+
+      const rawImportances = trained.metrics?.feature_importances;
+      if (Array.isArray(rawImportances) && rawImportances.length > 0) {
+        topFeatures = rawImportances as { feature: string; importance: number }[];
+      }
+    } catch (trainErr) {
+      console.warn('Desktop ML engine call failed, using robust local statistical evaluation:', trainErr);
+      const fallbackResults = computeLocalModelComparison(dataset, eda, task, target, featuresUsed);
+      comparison = fallbackResults.comparison;
+      bestModel = fallbackResults.bestModel;
+      topFeatures = fallbackResults.topFeatures;
+    }
+  } else {
+    const fallbackResults = computeLocalModelComparison(dataset, eda, task, target, featuresUsed);
+    comparison = fallbackResults.comparison;
+    bestModel = fallbackResults.bestModel;
+    topFeatures = fallbackResults.topFeatures;
+  }
+
+  if (topFeatures.length === 0) {
+    topFeatures = deriveTopFeaturesFromEda(eda, featuresUsed, target);
+  }
+
+  emit('comparing', 7, 'Comparing Performance', `Selected ${bestModel.label} as top performer (${bestModel.scoreLabel}: ${bestModel.score})…`, 88);
+  await new Promise((r) => setTimeout(r, 120));
+
+  return {
+    task,
+    target,
+    featuresUsed,
+    bestModel,
+    comparison,
+    topFeatures,
+    savedModelId,
+  };
+}
+
+/**
+ * STEP 4: Generate Gemini executive explanation for trained ML output.
+ */
+export async function generateGeminiExplanationForRun(
+  dataset: ExtractionResult,
+  eda: EdaSummary,
+  trainResult: TrainModelResult,
+  geminiApiKey?: string | null,
+  geminiModel: string = 'gemini-2.5-flash'
+): Promise<IntelligenceReport> {
+  const minContext: MinimizedMlContext = {
+    task: trainResult.task,
+    target: trainResult.target,
+    rowCount: dataset.rowCount,
+    featureCount: dataset.columnCount,
+    dataQualityScore: eda.dataQuality.overallScore,
+    dataQualityRating: eda.dataQuality.rating,
+    bestModel: trainResult.bestModel,
+    comparison: trainResult.comparison.map((c) => ({
+      algorithm: c.algorithm,
+      label: c.label,
+      score: c.score,
+      durationSeconds: c.duration_seconds,
+    })),
+    topFeatures: trainResult.topFeatures.slice(0, 6),
+    topCorrelations: eda.topCorrelations.slice(0, 5).map((c) => ({
+      featureA: c.featureA,
+      featureB: c.featureB,
+      correlation: c.correlation,
+    })),
+    sampleMetrics: {
+      meanTarget: eda.numericStats[trainResult.target]?.mean,
+      medianTarget: eda.numericStats[trainResult.target]?.median,
+      categoryDistribution: eda.categoricalStats['category']?.topCategories,
+    },
+  };
+
+  return generateIntelligenceReport(minContext, geminiApiKey, geminiModel, eda);
 }
 
 /**
@@ -111,147 +282,23 @@ export async function runAutoIntelligence(
 
     // ── STAGE 2: Extracting ────────────────────────────────────────────────
     emit('extracting', 2, 'Extracting Records', `Scanning ${assets.length} assets and ${records.length} valuation entries…`, 20);
-    const dataset = extractPortfolioAssetDataset(assets, records, market, documents);
+    const { dataset, eda } = generateCurrentDataset(assets, records, market, documents);
     await new Promise((r) => setTimeout(r, 150));
-
-    if (dataset.rowCount === 0) {
-      throw new Error('Your portfolio contains no active assets to analyze. Add at least one asset to run Intelligence.');
-    }
 
     // ── STAGE 3: Preparing dataset ─────────────────────────────────────────
     emit('preparing', 3, 'Preparing Dataset', `Normalized ${dataset.columnCount} structured physical and financial features…`, 35);
     await new Promise((r) => setTimeout(r, 150));
 
-    // Resolve task & target
-    const task = taskOverride ?? dataset.recommendedTask;
-    let target = targetOverride ?? dataset.recommendedTarget;
-    if (task === 'clustering') target = '';
-
-    // Select features excluding target and identifiers
-    const featuresUsed = dataset.columns
-      .filter((c) => c.name !== target && c.type !== 'identifier' && !c.isLeakageRisk)
-      .map((c) => c.name);
-
-    // ── STAGE 4: Cleaning & Preprocessing ─────────────────────────────────
-    emit('cleaning', 4, 'Cleaning & Preprocessing', 'Imputing missing values, encoding categoricals, validating targets…', 50);
-    await new Promise((r) => setTimeout(r, 150));
-
-    // ── STAGE 5: Exploratory Data Analysis ─────────────────────────────────
-    emit('eda', 5, 'Exploratory Analysis', 'Computing feature statistics, correlation matrix, and data quality score…', 65);
-    const eda = runAutomatedEda(dataset);
-    await new Promise((r) => setTimeout(r, 180));
-
-    // ── STAGE 6: Training Machine-Learning Models ──────────────────────────
-    emit('training', 6, 'Training Models', `Benchmarking candidate ${task} algorithms on held-out data…`, 78);
-
-    let comparison: CompareRow[] = [];
-    let bestModel: OrchestrationResult['bestModel'];
-    let topFeatures: { feature: string; importance: number }[] = [];
-    let savedModelId: string | undefined;
-
-    if (isTauriShell()) {
-      try {
-        // Ingest into SQLite dataset table
-        const imported = await intel.createDatasetFromCsv({
-          name: `${dataset.datasetName}_${new Date().toISOString().slice(0, 10)}`,
-          csv_content: dataset.csvContent,
-        });
-
-        // Train using Python ML Engine
-        const trained = await intel.train({
-          dataset_id: imported.id,
-          task,
-          target: target || undefined,
-          features: featuresUsed,
-          test_size: 0.2,
-          model_name: `Auto_${task}_${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
-        });
-
-        savedModelId = trained.id;
-        comparison = (trained.comparison ?? []).map((c) => ({
-          algorithm: c.algorithm,
-          label: c.label,
-          score: c.score,
-          duration_seconds: c.duration_seconds,
-          metrics: c.metrics,
-          saved: c.saved,
-          error: c.error,
-        }));
-
-        bestModel = {
-          algorithm: trained.algorithm,
-          label: trained.algorithm_label,
-          scoreLabel: trained.scoring_label ?? (task === 'regression' ? 'R² Score' : 'F1 Score'),
-          score: trained.scoring ? Math.round(trained.scoring * 1000) / 1000 : 0,
-          metrics: trained.metrics ?? {},
-        };
-
-        // Extract feature importances if provided by Python engine
-        const rawImportances = trained.metrics?.feature_importances;
-        if (Array.isArray(rawImportances) && rawImportances.length > 0) {
-          topFeatures = rawImportances as { feature: string; importance: number }[];
-        }
-      } catch (trainErr) {
-        console.warn('Desktop ML engine call failed or was constrained, using robust local statistical evaluation:', trainErr);
-        // Fallback to local computation
-        const fallbackResults = computeLocalModelComparison(dataset, eda, task, target, featuresUsed);
-        comparison = fallbackResults.comparison;
-        bestModel = fallbackResults.bestModel;
-        topFeatures = fallbackResults.topFeatures;
-      }
-    } else {
-      // Browser / test environment without Tauri sidecar
-      const fallbackResults = computeLocalModelComparison(dataset, eda, task, target, featuresUsed);
-      comparison = fallbackResults.comparison;
-      bestModel = fallbackResults.bestModel;
-      topFeatures = fallbackResults.topFeatures;
-    }
-
-    // Default topFeatures if not yet populated
-    if (topFeatures.length === 0) {
-      topFeatures = deriveTopFeaturesFromEda(eda, featuresUsed, target);
-    }
-
-    // ── STAGE 7: Comparing Model Performance ──────────────────────────────
-    emit('comparing', 7, 'Comparing Performance', `Selected ${bestModel.label} as top performer (${bestModel.scoreLabel}: ${bestModel.score})…`, 88);
-    await new Promise((r) => setTimeout(r, 150));
+    // ── STAGE 4, 5, 6, 7: Cleaning, Training & Comparing Models ────────────
+    const trained = await trainModelOnPreparedDataset(dataset, eda, {
+      taskOverride,
+      targetOverride,
+      onProgress: (stage, idx, title, detail, pct) => emit(stage, idx, title, detail, pct),
+    });
 
     // ── STAGE 8: Generating AI Insights ───────────────────────────────────
     emit('insights', 8, 'Generating AI Analysis', 'Synthesizing executive summary, key findings, and recommendations…', 95);
-
-    const minContext: MinimizedMlContext = {
-      task,
-      target,
-      rowCount: dataset.rowCount,
-      featureCount: dataset.columnCount,
-      dataQualityScore: eda.dataQuality.overallScore,
-      dataQualityRating: eda.dataQuality.rating,
-      bestModel,
-      comparison: comparison.map((c) => ({
-        algorithm: c.algorithm,
-        label: c.label,
-        score: c.score,
-        durationSeconds: c.duration_seconds,
-      })),
-      topFeatures: topFeatures.slice(0, 6),
-      topCorrelations: eda.topCorrelations.slice(0, 5).map((c) => ({
-        featureA: c.featureA,
-        featureB: c.featureB,
-        correlation: c.correlation,
-      })),
-      sampleMetrics: {
-        meanTarget: eda.numericStats[target]?.mean,
-        medianTarget: eda.numericStats[target]?.median,
-        categoryDistribution: eda.categoricalStats['category']?.topCategories,
-      },
-    };
-
-    const report = await generateIntelligenceReport(
-      minContext,
-      geminiApiKey,
-      geminiModel ?? 'gemini-2.5-flash',
-      eda
-    );
+    const report = await generateGeminiExplanationForRun(dataset, eda, trained, geminiApiKey, geminiModel);
 
     // ── STAGE 9: Analysis Complete ────────────────────────────────────────
     emit('completed', 9, 'Analysis Complete', 'Intelligence report and model metrics ready.', 100);
@@ -261,14 +308,8 @@ export async function runAutoIntelligence(
       timestamp,
       dataset,
       eda,
-      task,
-      target,
-      featuresUsed,
-      bestModel,
-      comparison,
-      topFeatures,
+      ...trained,
       report,
-      savedModelId,
     };
 
     // Save to local run history
@@ -276,19 +317,22 @@ export async function runAutoIntelligence(
       id: runId,
       timestamp,
       datasetName: dataset.datasetName,
-      task,
-      target,
+      task: trained.task,
+      target: trained.target,
       rowCount: dataset.rowCount,
       featureCount: dataset.columnCount,
-      featuresUsed,
+      featuresUsed: trained.featuresUsed,
       dataQualityScore: eda.dataQuality.overallScore,
-      bestModel,
-      comparison,
-      topFeatures,
+      bestModel: trained.bestModel,
+      comparison: trained.comparison,
+      topFeatures: trained.topFeatures,
       eda,
       report,
-      savedModelId,
+      savedModelId: trained.savedModelId,
     };
+    saveAnalysisRun(savedRun);
+
+    return fullResult;
     saveAnalysisRun(savedRun);
 
     return fullResult;

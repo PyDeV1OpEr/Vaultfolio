@@ -55,9 +55,18 @@ import { ClassificationEval, ClusteringEval, RegressionEval } from '../../compon
 import { CHART_PALETTE } from '../../components/Charts';
 import { useData } from '../../store/dataStore';
 import { intel, fmtNumber, fmtDate, type CompareRow } from '../../lib/intel';
-import { runAutoIntelligence, type OrchestrationResult, type StageProgress } from '../../lib/intelligence/autoMlOrchestrator';
+import {
+  runAutoIntelligence,
+  generateCurrentDataset,
+  trainModelOnPreparedDataset,
+  generateGeminiExplanationForRun,
+  type OrchestrationResult,
+  type StageProgress,
+} from '../../lib/intelligence/autoMlOrchestrator';
+import { generateLocalDeterministicReport } from '../../lib/intelligence/geminiIntelligence';
 import { loadAnalysisHistory, saveAnalysisRun, deleteAnalysisRun, type SavedAnalysisRun } from '../../lib/intelligence/historyStore';
-import type { NumericFeatureStats } from '../../lib/intelligence/edaEngine';
+import type { ExtractionResult } from '../../lib/intelligence/dataExtractor';
+import type { EdaSummary, NumericFeatureStats } from '../../lib/intelligence/edaEngine';
 
 type TabKey = 'overview' | 'eda' | 'comparison' | 'predictor' | 'history' | 'dataset';
 
@@ -68,8 +77,16 @@ export function Intelligence() {
   // Active view state
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [analysisResult, setAnalysisResult] = useState<OrchestrationResult | null>(null);
+  const [extractedDataset, setExtractedDataset] = useState<ExtractionResult | null>(null);
+  const [extractedEda, setExtractedEda] = useState<EdaSummary | null>(null);
   const [historyRuns, setHistoryRuns] = useState<SavedAnalysisRun[]>([]);
+
+  // Execution states
   const [isRunning, setIsRunning] = useState(false);
+  const [isExtractingCsv, setIsExtractingCsv] = useState(false);
+  const [isTraining, setIsTraining] = useState(false);
+  const [isExplaining, setIsExplaining] = useState(false);
+  const [datasetNotice, setDatasetNotice] = useState<string | null>(null);
   const [progress, setProgress] = useState<StageProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -86,6 +103,11 @@ export function Intelligence() {
   const [predCondition, setPredCondition] = useState<number>(4);
   const [predHoldingYears, setPredHoldingYears] = useState<number>(2.5);
 
+  // Effective dataset & EDA
+  const effectiveDataset = extractedDataset ?? analysisResult?.dataset ?? null;
+  const effectiveEda = extractedEda ?? analysisResult?.eda ?? null;
+  const activeEda = analysisResult?.eda ?? effectiveEda;
+
   // Load history on mount
   useEffect(() => {
     const list = loadAnalysisHistory();
@@ -99,6 +121,14 @@ export function Intelligence() {
           datasetName: latest.datasetName,
           description: '',
           rowCount: latest.rowCount,
+          usableRowCount: latest.rowCount,
+          totalRecordsRetrieved: latest.rowCount,
+          dateRangeCovered: {
+            earliest: latest.timestamp.slice(0, 10),
+            latest: latest.timestamp.slice(0, 10),
+            spanYears: 1.0,
+            label: 'Historical vault records',
+          },
           columnCount: latest.featureCount,
           columns: [],
           numericColumns: Object.keys(latest.eda.numericStats),
@@ -125,22 +155,186 @@ export function Intelligence() {
 
   // Update selected histogram column once EDA arrives
   useEffect(() => {
-    if (analysisResult?.eda?.numericStats) {
-      const keys = Object.keys(analysisResult.eda.numericStats);
+    if (effectiveEda?.numericStats) {
+      const keys = Object.keys(effectiveEda.numericStats);
       if (keys.length > 0 && !keys.includes(selectedHistCol)) {
         setSelectedHistCol(keys[0]);
       }
     }
-  }, [analysisResult]);
+  }, [effectiveEda]);
 
-  // Execute One-Click Auto Analysis
+  // ── STEP 1: GET CURRENT CSV ──────────────────────────────────────────────
+  const handleGetCurrentCsv = useCallback(async () => {
+    if (isRunning || isExtractingCsv || isTraining) return;
+    setIsExtractingCsv(true);
+    setError(null);
+    setDatasetNotice(null);
+
+    try {
+      const { dataset, eda } = generateCurrentDataset(assets, records, market, documents);
+      setExtractedDataset(dataset);
+      setExtractedEda(eda);
+      setDatasetNotice(
+        `Extracted ${dataset.rowCount} asset records (${dataset.usableRowCount} usable for training) covering ${dataset.dateRangeCovered?.label || 'historical period'} across ${dataset.columnCount} features.`
+      );
+      setActiveTab('dataset');
+    } catch (err) {
+      console.error('CSV generation error:', err);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsExtractingCsv(false);
+    }
+  }, [assets, records, market, documents, isRunning, isExtractingCsv, isTraining]);
+
+  // ── STEP 2: TRAIN ML MODEL ───────────────────────────────────────────────
+  const handleTrainMlModel = useCallback(async () => {
+    const ds = effectiveDataset;
+    const eda = effectiveEda;
+    if (!ds || !eda) {
+      setError('Please click "Get Current CSV" first to extract historical portfolio records.');
+      return;
+    }
+    if (ds.rowCount < 1) {
+      setError('Your portfolio contains no active assets to train on. Add at least one asset to proceed.');
+      return;
+    }
+
+    setIsTraining(true);
+    setError(null);
+    setProgress({
+      stage: 'training',
+      stageIndex: 6,
+      title: 'Training ML Models',
+      detail: `Benchmarking candidate ${taskOverride === 'auto' ? ds.recommendedTask : taskOverride} algorithms…`,
+      pct: 65,
+    });
+
+    try {
+      const trained = await trainModelOnPreparedDataset(ds, eda, {
+        taskOverride: taskOverride === 'auto' ? undefined : taskOverride,
+        onProgress: (stage, idx, title, detail, pct) => setProgress({ stage, stageIndex: idx, title, detail, pct }),
+      });
+
+      // Immediate local deterministic report so UI is instantly informative offline
+      const localReport = generateLocalDeterministicReport(
+        {
+          task: trained.task,
+          target: trained.target,
+          rowCount: ds.rowCount,
+          featureCount: ds.columnCount,
+          dataQualityScore: eda.dataQuality.overallScore,
+          dataQualityRating: eda.dataQuality.rating,
+          bestModel: trained.bestModel,
+          comparison: trained.comparison.map((c) => ({
+            algorithm: c.algorithm,
+            label: c.label,
+            score: c.score,
+            durationSeconds: c.duration_seconds,
+          })),
+          topFeatures: trained.topFeatures.slice(0, 6),
+          topCorrelations: eda.topCorrelations.slice(0, 5).map((c) => ({
+            featureA: c.featureA,
+            featureB: c.featureB,
+            correlation: c.correlation,
+          })),
+          sampleMetrics: {
+            meanTarget: eda.numericStats[trained.target]?.mean,
+            medianTarget: eda.numericStats[trained.target]?.median,
+            categoryDistribution: eda.categoricalStats['category']?.topCategories,
+          },
+        },
+        eda
+      );
+
+      const fullResult: OrchestrationResult = {
+        runId: typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `run-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        dataset: ds,
+        eda,
+        ...trained,
+        report: localReport,
+      };
+
+      setAnalysisResult(fullResult);
+      setActiveTab('overview');
+    } catch (err) {
+      console.error('Model training error:', err);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsTraining(false);
+      setProgress(null);
+    }
+  }, [effectiveDataset, effectiveEda, taskOverride]);
+
+  // ── STEP 4: GEMINI EXPLANATION ───────────────────────────────────────────
+  const handleGenerateGeminiExplanation = useCallback(async () => {
+    if (!analysisResult) {
+      setError('Please train a machine learning model first before requesting an AI explanation.');
+      return;
+    }
+
+    setIsExplaining(true);
+    setError(null);
+
+    try {
+      let geminiKey: string | null = null;
+      if (hasGeminiKeyStored()) {
+        try {
+          geminiKey = await loadGeminiKey();
+        } catch {
+          geminiKey = null;
+        }
+      }
+
+      const report = await generateGeminiExplanationForRun(
+        analysisResult.dataset,
+        analysisResult.eda,
+        analysisResult,
+        geminiKey,
+        'gemini-2.5-flash'
+      );
+
+      const updatedResult: OrchestrationResult = {
+        ...analysisResult,
+        report,
+      };
+
+      setAnalysisResult(updatedResult);
+
+      saveAnalysisRun({
+        id: updatedResult.runId,
+        timestamp: updatedResult.timestamp,
+        datasetName: updatedResult.dataset.datasetName,
+        task: updatedResult.task,
+        target: updatedResult.target,
+        rowCount: updatedResult.dataset.rowCount,
+        featureCount: updatedResult.dataset.columnCount,
+        featuresUsed: updatedResult.featuresUsed,
+        dataQualityScore: updatedResult.eda.dataQuality.overallScore,
+        bestModel: updatedResult.bestModel,
+        comparison: updatedResult.comparison,
+        topFeatures: updatedResult.topFeatures,
+        eda: updatedResult.eda,
+        report,
+        savedModelId: updatedResult.savedModelId,
+      });
+      setHistoryRuns(loadAnalysisHistory());
+      setActiveTab('overview');
+    } catch (err) {
+      console.error('Gemini explanation error:', err);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsExplaining(false);
+    }
+  }, [analysisResult, hasGeminiKeyStored, loadGeminiKey]);
+
+  // ── FULL 1-CLICK END-TO-END PIPELINE ─────────────────────────────────────
   const handleRunAnalysis = useCallback(async () => {
     if (isRunning) return;
     setIsRunning(true);
     setError(null);
 
     try {
-      // Check for Gemini API key if configured
       let geminiKey: string | null = null;
       if (hasGeminiKeyStored()) {
         try {
@@ -158,6 +352,8 @@ export function Intelligence() {
       });
 
       setAnalysisResult(result);
+      setExtractedDataset(result.dataset);
+      setExtractedEda(result.eda);
       setHistoryRuns(loadAnalysisHistory());
       setActiveTab('overview');
     } catch (err) {
@@ -182,25 +378,34 @@ export function Intelligence() {
 
   // Export CSV
   const handleExportCsv = () => {
-    if (!analysisResult?.dataset?.csvContent) return;
-    const blob = new Blob([analysisResult.dataset.csvContent], { type: 'text/csv;charset=utf-8;' });
+    const ds = effectiveDataset;
+    if (!ds?.csvContent) return;
+    const blob = new Blob([ds.csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Vaultfolio_${analysisResult.dataset.datasetName}_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `Vaultfolio_${ds.datasetName}_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
   // Load a historical run
   const handleLoadHistoricalRun = (run: SavedAnalysisRun) => {
-    setAnalysisResult({
+    const loadedResult: OrchestrationResult = {
       runId: run.id,
       timestamp: run.timestamp,
       dataset: {
         datasetName: run.datasetName,
         description: '',
         rowCount: run.rowCount,
+        usableRowCount: run.rowCount,
+        totalRecordsRetrieved: run.rowCount,
+        dateRangeCovered: {
+          earliest: run.timestamp.slice(0, 10),
+          latest: run.timestamp.slice(0, 10),
+          spanYears: 1.0,
+          label: 'Historical vault records',
+        },
         columnCount: run.featureCount,
         columns: [],
         numericColumns: Object.keys(run.eda.numericStats),
@@ -221,7 +426,10 @@ export function Intelligence() {
       topFeatures: run.topFeatures,
       report: run.report,
       savedModelId: run.savedModelId,
-    });
+    };
+    setAnalysisResult(loadedResult);
+    setExtractedDataset(loadedResult.dataset);
+    setExtractedEda(loadedResult.eda);
     setActiveTab('overview');
   };
 
@@ -306,7 +514,7 @@ export function Intelligence() {
             size="md"
             onClick={handleRunAnalysis}
             loading={isRunning}
-            disabled={isRunning}
+            disabled={isRunning || isExtractingCsv || isTraining}
             className="shadow-btn-primary flex items-center gap-2"
           >
             {isRunning ? (
@@ -317,15 +525,176 @@ export function Intelligence() {
             ) : (
               <>
                 <Play size={15} className="fill-current text-ink-950" />
-                Run Analysis
+                Run Full Analysis
               </>
             )}
           </Button>
         </div>
       </header>
 
+      {/* ── 4-STEP INTELLIGENCE PIPELINE CONTROL BAR ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* STEP 1: Get Current CSV */}
+        <Card className={`border transition-all duration-200 ${
+          effectiveDataset ? 'border-accent/40 bg-accent/5' : 'border-ink-700 bg-ink-875'
+        }`}>
+          <CardBody className="p-3.5 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-2xs font-bold uppercase tracking-wider text-txt-dim flex items-center gap-1.5">
+                <FileSpreadsheet size={13} className="text-accent" /> Step 1: Data Ingestion
+              </span>
+              {effectiveDataset ? (
+                <Badge tone="positive" className="text-2xs gap-1 py-0.5">
+                  <Check size={10} /> Extracted
+                </Badge>
+              ) : (
+                <Badge tone="neutral" className="text-2xs py-0.5">Ready</Badge>
+              )}
+            </div>
+            <div>
+              <h4 className="text-xs font-semibold text-txt">Get Current CSV</h4>
+              <p className="text-2xs text-txt-muted mt-0.5">
+                {effectiveDataset
+                  ? `${effectiveDataset.rowCount} records (${effectiveDataset.columnCount} features)`
+                  : 'Extract from persistent vault'}
+              </p>
+            </div>
+            <Button
+              variant={effectiveDataset ? 'secondary' : 'primary'}
+              size="xs"
+              className="w-full flex items-center justify-center gap-1.5"
+              onClick={handleGetCurrentCsv}
+              loading={isExtractingCsv}
+              disabled={isRunning || isTraining}
+            >
+              <Database size={12} /> {effectiveDataset ? 'Refresh CSV' : 'Get Current CSV'}
+            </Button>
+          </CardBody>
+        </Card>
+
+        {/* STEP 2: Train ML Model */}
+        <Card className={`border transition-all duration-200 ${
+          analysisResult?.bestModel ? 'border-accent/40 bg-accent/5' : 'border-ink-700 bg-ink-875'
+        }`}>
+          <CardBody className="p-3.5 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-2xs font-bold uppercase tracking-wider text-txt-dim flex items-center gap-1.5">
+                <Cpu size={13} className="text-accent" /> Step 2: Training
+              </span>
+              {analysisResult?.bestModel ? (
+                <Badge tone="positive" className="text-2xs gap-1 py-0.5">
+                  <Check size={10} /> Trained
+                </Badge>
+              ) : (
+                <Badge tone="neutral" className="text-2xs py-0.5">
+                  {effectiveDataset ? 'Ready' : 'Awaiting CSV'}
+                </Badge>
+              )}
+            </div>
+            <div>
+              <h4 className="text-xs font-semibold text-txt">Train ML Model</h4>
+              <p className="text-2xs text-txt-muted mt-0.5">
+                {analysisResult?.bestModel
+                  ? `${analysisResult.bestModel.label} (${analysisResult.bestModel.score})`
+                  : 'Benchmark candidate algorithms'}
+              </p>
+            </div>
+            <Button
+              variant={analysisResult?.bestModel ? 'secondary' : 'primary'}
+              size="xs"
+              className="w-full flex items-center justify-center gap-1.5"
+              onClick={handleTrainMlModel}
+              loading={isTraining}
+              disabled={!effectiveDataset || isRunning || isExtractingCsv}
+            >
+              <Play size={12} className="fill-current" /> {analysisResult?.bestModel ? 'Retrain Model' : 'Train ML Model'}
+            </Button>
+          </CardBody>
+        </Card>
+
+        {/* STEP 3: View ML Results */}
+        <Card className={`border transition-all duration-200 ${
+          analysisResult?.bestModel ? 'border-accent/40 bg-accent/5' : 'border-ink-700 bg-ink-875'
+        }`}>
+          <CardBody className="p-3.5 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-2xs font-bold uppercase tracking-wider text-txt-dim flex items-center gap-1.5">
+                <BarChart3 size={13} className="text-accent" /> Step 3: Evaluation
+              </span>
+              <Badge tone={analysisResult?.bestModel ? 'accent' : 'neutral'} className="text-2xs py-0.5">
+                {analysisResult?.bestModel ? 'Available' : 'Pending'}
+              </Badge>
+            </div>
+            <div>
+              <h4 className="text-xs font-semibold text-txt">View ML Results</h4>
+              <p className="text-2xs text-txt-muted mt-0.5">
+                {analysisResult?.bestModel
+                  ? `${analysisResult.comparison.length} algorithms evaluated`
+                  : 'Inference & metrics'}
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Button
+                variant="secondary"
+                size="xs"
+                className="flex-1"
+                onClick={() => setActiveTab('overview')}
+                disabled={!analysisResult?.bestModel}
+              >
+                Overview
+              </Button>
+              <Button
+                variant="secondary"
+                size="xs"
+                className="flex-1"
+                onClick={() => setActiveTab('comparison')}
+                disabled={!analysisResult?.bestModel}
+              >
+                Models
+              </Button>
+            </div>
+          </CardBody>
+        </Card>
+
+        {/* STEP 4: Gemini Explanation */}
+        <Card className={`border transition-all duration-200 ${
+          analysisResult?.report ? 'border-accent/40 bg-accent/5' : 'border-ink-700 bg-ink-875'
+        }`}>
+          <CardBody className="p-3.5 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-2xs font-bold uppercase tracking-wider text-txt-dim flex items-center gap-1.5">
+                <Sparkles size={13} className="text-accent" /> Step 4: AI Insights
+              </span>
+              {analysisResult?.report ? (
+                <Badge tone={analysisResult.report.source === 'gemini' ? 'positive' : 'neutral'} className="text-2xs gap-1 py-0.5">
+                  <Check size={10} /> {analysisResult.report.source === 'gemini' ? 'Gemini AI' : 'Deterministic'}
+                </Badge>
+              ) : (
+                <Badge tone="neutral" className="text-2xs py-0.5">Optional</Badge>
+              )}
+            </div>
+            <div>
+              <h4 className="text-xs font-semibold text-txt">Gemini Explanation</h4>
+              <p className="text-2xs text-txt-muted mt-0.5">
+                {analysisResult?.report ? 'Executive brief ready' : 'Explain ML patterns & risk'}
+              </p>
+            </div>
+            <Button
+              variant={analysisResult?.report ? 'secondary' : 'primary'}
+              size="xs"
+              className="w-full flex items-center justify-center gap-1.5 shadow-sm"
+              onClick={handleGenerateGeminiExplanation}
+              loading={isExplaining}
+              disabled={!analysisResult?.bestModel || isRunning}
+            >
+              <Bot size={12} /> {analysisResult?.report ? 'Regenerate Brief' : 'Explain with Gemini'}
+            </Button>
+          </CardBody>
+        </Card>
+      </div>
+
       {/* ── EXECUTION PROGRESS BANNER ── */}
-      {isRunning && progress && (
+      {(isRunning || isTraining) && progress && (
         <Card className="border-accent/40 bg-gradient-to-r from-ink-900 via-[#151525] to-ink-900 animate-pulse shadow-card-purple">
           <CardBody className="py-4 space-y-3">
             <div className="flex items-center justify-between text-xs">
@@ -346,6 +715,16 @@ export function Intelligence() {
         </Card>
       )}
 
+      {/* ── DATASET EXTRACTION NOTICE ── */}
+      {datasetNotice && (
+        <InlineAlert kind="info">
+          <div className="flex items-center justify-between">
+            <span className="text-xs">{datasetNotice}</span>
+            <Button variant="ghost" size="xs" onClick={() => setDatasetNotice(null)}>Dismiss</Button>
+          </div>
+        </InlineAlert>
+      )}
+
       {/* ── ERROR ALERT ── */}
       {error && (
         <InlineAlert kind="error">
@@ -356,8 +735,8 @@ export function Intelligence() {
         </InlineAlert>
       )}
 
-      {/* ── EMPTY / WELCOME HERO (If no analysis yet) ── */}
-      {!analysisResult && !isRunning && (
+      {/* ── EMPTY / WELCOME HERO (If no dataset and no analysis yet) ── */}
+      {!effectiveDataset && !analysisResult && !isRunning && !isExtractingCsv && (
         <Card className="border-ink-700 bg-ink-875 p-6 text-center space-y-4">
           <div className="w-14 h-14 rounded-2xl bg-accent/10 border border-accent/25 mx-auto flex items-center justify-center text-accent shadow-glow-pill">
             <Sparkles size={28} />
@@ -365,20 +744,23 @@ export function Intelligence() {
           <div className="max-w-md mx-auto space-y-1">
             <h2 className="text-base font-semibold text-txt">No Manual CSV Required</h2>
             <p className="text-xs text-txt-muted leading-relaxed">
-              Click <strong>Run Analysis</strong> to automatically extract physical attributes from your local assets,
-              compute complete statistical EDA, train candidate Scikit-learn algorithms, and synthesize AI executive explanations.
+              Click <strong>Get Current CSV</strong> to automatically extract historical records from your local vault,
+              or <strong>Run Full Analysis</strong> to train Scikit-learn candidate models and synthesize AI explanations in one step.
             </p>
           </div>
-          <div className="flex justify-center pt-2">
+          <div className="flex justify-center gap-3 pt-2">
+            <Button variant="secondary" size="lg" onClick={handleGetCurrentCsv} className="border-accent/40 text-accent">
+              <Database size={16} className="mr-2" /> Step 1: Get Current CSV
+            </Button>
             <Button variant="primary" size="lg" onClick={handleRunAnalysis} className="shadow-btn-primary">
-              <Play size={16} className="fill-current mr-2" /> Start Automated Analysis
+              <Play size={16} className="fill-current mr-2" /> Run Full Analysis
             </Button>
           </div>
         </Card>
       )}
 
-      {/* ── MAIN ANALYSIS WORKSPACE (When result is ready) ── */}
-      {analysisResult && (
+      {/* ── MAIN ANALYSIS WORKSPACE (When dataset or result is ready) ── */}
+      {(effectiveDataset || analysisResult) && (
         <div className="space-y-6">
           {/* NAVIGATION TABS */}
           <div className="flex items-center gap-1.5 p-1 bg-ink-900 border border-ink-700 rounded-2xl overflow-x-auto">
@@ -423,16 +805,6 @@ export function Intelligence() {
               <Sliders size={13} /> Interactive Predictor
             </button>
             <button
-              onClick={() => setActiveTab('history')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-medium transition flex items-center gap-1.5 whitespace-nowrap ${
-                activeTab === 'history'
-                  ? 'bg-accent/15 text-accent border border-accent/30 shadow-sm'
-                  : 'text-txt-muted hover:text-txt hover:bg-ink-800'
-              }`}
-            >
-              <History size={13} /> History ({historyRuns.length})
-            </button>
-            <button
               onClick={() => setActiveTab('dataset')}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-medium transition flex items-center gap-1.5 whitespace-nowrap ${
                 activeTab === 'dataset'
@@ -440,7 +812,27 @@ export function Intelligence() {
                   : 'text-txt-muted hover:text-txt hover:bg-ink-800'
               }`}
             >
-              <TableIcon size={13} /> Tabular Dataset
+              <TableIcon size={13} /> Historical Dataset
+              {effectiveDataset && (
+                <span className="ml-1 text-2xs px-1.5 py-0.2 rounded-full bg-ink-800 text-txt-dim">
+                  {effectiveDataset.rowCount}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab('history')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-medium transition flex items-center gap-1.5 whitespace-nowrap ${
+                activeTab === 'history'
+                  ? 'bg-accent/15 text-accent border border-accent/30 shadow-sm'
+                  : 'text-txt-muted hover:text-txt hover:bg-ink-800'
+              }`}
+            >
+              <History size={13} /> History
+              {historyRuns.length > 0 && (
+                <span className="ml-1 text-2xs px-1.5 py-0.2 rounded-full bg-ink-800 text-txt-dim">
+                  {historyRuns.length}
+                </span>
+              )}
             </button>
           </div>
 
@@ -448,7 +840,8 @@ export function Intelligence() {
           {/* TAB 1: EXECUTIVE OVERVIEW                                          */}
           {/* ═════════════════════════════════════════════════════════════════ */}
           {activeTab === 'overview' && (
-            <div className="space-y-6">
+            analysisResult ? (
+              <div className="space-y-6">
               {/* Top KPI row */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <Card className="border-ink-700 bg-ink-875 p-3.5">
@@ -709,19 +1102,37 @@ export function Intelligence() {
                 </Card>
               </div>
             </div>
+            ) : (
+              <Card className="border-ink-700 bg-ink-875 p-8 text-center space-y-4">
+                <div className="w-12 h-12 rounded-xl bg-accent/10 border border-accent/30 mx-auto flex items-center justify-center text-accent shadow-glow-pill">
+                  <Cpu size={22} />
+                </div>
+                <div className="max-w-md mx-auto space-y-1">
+                  <h3 className="text-sm font-semibold text-txt">Awaiting Model Training</h3>
+                  <p className="text-xs text-txt-muted leading-relaxed">
+                    Historical records have been extracted ({effectiveDataset?.rowCount} rows). Click <strong>Train ML Model</strong> above to benchmark candidate algorithms and generate executive insights.
+                  </p>
+                </div>
+                <div className="flex justify-center pt-2">
+                  <Button variant="primary" size="md" onClick={handleTrainMlModel} loading={isTraining} className="shadow-btn-primary">
+                    <Play size={14} className="fill-current mr-2" /> Train ML Model
+                  </Button>
+                </div>
+              </Card>
+            )
           )}
 
           {/* ═════════════════════════════════════════════════════════════════ */}
           {/* TAB 2: EXPLORATORY DATA ANALYSIS (EDA)                              */}
           {/* ═════════════════════════════════════════════════════════════════ */}
-          {activeTab === 'eda' && (
+          {activeTab === 'eda' && activeEda && (
             <div className="space-y-6">
               {/* EDA Overview cards */}
               <div className="grid sm:grid-cols-3 gap-3">
                 <Card className="border-ink-700 bg-ink-875 p-3.5 space-y-1">
                   <div className="text-2xs text-txt-dim uppercase font-semibold">Completeness Factor</div>
                   <div className="text-lg font-bold text-emerald-400">
-                    {analysisResult.eda.dataQuality.completenessPct}%
+                    {activeEda.dataQuality.completenessPct}%
                   </div>
                   <p className="text-2xs text-txt-muted">Non-empty attribute coverage across records</p>
                 </Card>
@@ -729,15 +1140,15 @@ export function Intelligence() {
                 <Card className="border-ink-700 bg-ink-875 p-3.5 space-y-1">
                   <div className="text-2xs text-txt-dim uppercase font-semibold">Sample Adequacy</div>
                   <div className="text-lg font-bold text-txt">
-                    {analysisResult.eda.dataQuality.sampleAdequacyPct}%
+                    {activeEda.dataQuality.sampleAdequacyPct}%
                   </div>
-                  <p className="text-2xs text-txt-muted">{analysisResult.eda.rowCount} observations available</p>
+                  <p className="text-2xs text-txt-muted">{activeEda.rowCount} observations available</p>
                 </Card>
 
                 <Card className="border-ink-700 bg-ink-875 p-3.5 space-y-1">
                   <div className="text-2xs text-txt-dim uppercase font-semibold">Information Diversity</div>
                   <div className="text-lg font-bold text-accent">
-                    {analysisResult.eda.dataQuality.validityPct}%
+                    {activeEda.dataQuality.validityPct}%
                   </div>
                   <p className="text-2xs text-txt-muted">Features with healthy non-zero variance</p>
                 </Card>
@@ -765,7 +1176,7 @@ export function Intelligence() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-ink-800">
-                      {Object.values(analysisResult.eda.numericStats).map((stat: NumericFeatureStats) => (
+                      {Object.values(activeEda.numericStats).map((stat: NumericFeatureStats) => (
                         <tr key={stat.column} className="hover:bg-ink-800/40 transition">
                           <td className="py-2.5 px-3 font-medium text-txt">{stat.column.replace(/_/g, ' ')}</td>
                           <td className="py-2.5 px-3 font-mono text-txt-muted">{fmtNumber(stat.mean, 1)}</td>
@@ -798,8 +1209,8 @@ export function Intelligence() {
                   </div>
                   <CardBody>
                     <div className="space-y-2">
-                      {analysisResult.eda.topCorrelations.length > 0 ? (
-                        analysisResult.eda.topCorrelations.map((c, i) => (
+                      {activeEda.topCorrelations.length > 0 ? (
+                        activeEda.topCorrelations.map((c, i) => (
                           <div key={i} className="p-2.5 rounded-xl bg-ink-900 border border-ink-700 flex items-center justify-between text-xs">
                             <div className="flex items-center gap-2 truncate">
                               <span className="text-txt font-medium">{c.featureA.replace(/_/g, ' ')}</span>
@@ -838,7 +1249,7 @@ export function Intelligence() {
                       onChange={(e) => setSelectedHistCol(e.target.value)}
                       className="text-xs bg-ink-800 border border-ink-700 rounded-lg px-2 py-1 text-txt outline-none"
                     >
-                      {Object.keys(analysisResult.eda.numericStats).map((col) => (
+                      {Object.keys(activeEda.numericStats).map((col) => (
                         <option key={col} value={col}>
                           {col.replace(/_/g, ' ')}
                         </option>
@@ -846,10 +1257,10 @@ export function Intelligence() {
                     </select>
                   </div>
                   <CardBody>
-                    {analysisResult.eda.numericStats[selectedHistCol]?.distribution ? (
+                    {activeEda.numericStats[selectedHistCol]?.distribution ? (
                       <ResponsiveContainer width="100%" height={220}>
                         <BarChart
-                          data={analysisResult.eda.numericStats[selectedHistCol].distribution}
+                          data={activeEda.numericStats[selectedHistCol].distribution}
                           margin={{ top: 10, right: 10, left: -10, bottom: 0 }}
                         >
                           <CartesianGrid strokeDasharray="3 3" stroke="#24252C" />
@@ -875,7 +1286,8 @@ export function Intelligence() {
           {/* TAB 3: MODEL COMPARISON                                            */}
           {/* ═════════════════════════════════════════════════════════════════ */}
           {activeTab === 'comparison' && (
-            <div className="space-y-6">
+            analysisResult ? (
+              <div className="space-y-6">
               {/* Comparison table */}
               <Card className="border-ink-700 bg-ink-875">
                 <div className="px-5 pt-4 pb-3 border-b border-ink-700/60">
@@ -954,13 +1366,32 @@ export function Intelligence() {
                 />
               )}
             </div>
+            ) : (
+              <Card className="border-ink-700 bg-ink-875 p-8 text-center space-y-4">
+                <div className="w-12 h-12 rounded-xl bg-accent/10 border border-accent/30 mx-auto flex items-center justify-center text-accent shadow-glow-pill">
+                  <Layers size={22} />
+                </div>
+                <div className="max-w-md mx-auto space-y-1">
+                  <h3 className="text-sm font-semibold text-txt">Model Benchmark Ready to Run</h3>
+                  <p className="text-xs text-txt-muted">
+                    Click <strong>Train ML Model</strong> to evaluate candidate estimators (Random Forest, Extra Trees, Gradient Boosting, Ridge, Lasso) side-by-side.
+                  </p>
+                </div>
+                <div className="flex justify-center pt-2">
+                  <Button variant="primary" size="md" onClick={handleTrainMlModel} loading={isTraining} className="shadow-btn-primary">
+                    <Play size={14} className="fill-current mr-2" /> Train ML Model
+                  </Button>
+                </div>
+              </Card>
+            )
           )}
 
           {/* ═════════════════════════════════════════════════════════════════ */}
           {/* TAB 4: INTERACTIVE PREDICTOR                                       */}
           {/* ═════════════════════════════════════════════════════════════════ */}
           {activeTab === 'predictor' && (
-            <div className="space-y-6">
+            analysisResult ? (
+              <div className="space-y-6">
               <div className="grid md:grid-cols-2 gap-6">
                 {/* Inputs Card */}
                 <Card className="border-ink-700 bg-ink-875">
@@ -1122,6 +1553,24 @@ export function Intelligence() {
                 </Card>
               </div>
             </div>
+            ) : (
+              <Card className="border-ink-700 bg-ink-875 p-8 text-center space-y-4">
+                <div className="w-12 h-12 rounded-xl bg-accent/10 border border-accent/30 mx-auto flex items-center justify-center text-accent shadow-glow-pill">
+                  <Sliders size={22} />
+                </div>
+                <div className="max-w-md mx-auto space-y-1">
+                  <h3 className="text-sm font-semibold text-txt">Predictive Simulation Awaiting Model</h3>
+                  <p className="text-xs text-txt-muted">
+                    The interactive what-if simulator requires a trained model to estimate confidence bands and valuation trajectories.
+                  </p>
+                </div>
+                <div className="flex justify-center pt-2">
+                  <Button variant="primary" size="md" onClick={handleTrainMlModel} loading={isTraining} className="shadow-btn-primary">
+                    <Play size={14} className="fill-current mr-2" /> Train ML Model
+                  </Button>
+                </div>
+              </Card>
+            )
           )}
 
           {/* ═════════════════════════════════════════════════════════════════ */}
@@ -1194,7 +1643,7 @@ export function Intelligence() {
           {/* ═════════════════════════════════════════════════════════════════ */}
           {/* TAB 6: TABULAR DATASET & ADVANCED TOOLS                            */}
           {/* ═════════════════════════════════════════════════════════════════ */}
-          {activeTab === 'dataset' && (
+          {activeTab === 'dataset' && effectiveDataset && (
             <div className="space-y-4">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div>
@@ -1209,20 +1658,75 @@ export function Intelligence() {
                   <Button variant="secondary" size="xs" onClick={handleExportCsv} className="flex items-center gap-1.5">
                     <Download size={13} /> Export CSV
                   </Button>
+                  {!analysisResult?.bestModel && (
+                    <Button
+                      variant="primary"
+                      size="xs"
+                      onClick={handleTrainMlModel}
+                      loading={isTraining}
+                      className="shadow-btn-primary flex items-center gap-1.5"
+                    >
+                      <Play size={12} className="fill-current" /> Train ML Model
+                    </Button>
+                  )}
                   <Button variant="ghost" size="xs" onClick={() => nav('/intelligence/import')} className="flex items-center gap-1.5 text-txt-muted">
                     <Upload size={13} /> Manual Import (Advanced)
                   </Button>
                 </div>
               </div>
 
+              {/* Historical Dataset Generation Metrics Banner */}
+              <Card className="border-ink-700 bg-ink-900/60 p-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-2xs">
+                  <div>
+                    <span className="text-txt-dim block">Total Records Retrieved</span>
+                    <span className="font-mono text-sm font-semibold text-txt">
+                      {effectiveDataset.totalRecordsRetrieved ?? effectiveDataset.rowCount}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-txt-dim block">Usable Training Records</span>
+                    <span className="font-mono text-sm font-semibold text-accent">
+                      {effectiveDataset.usableRowCount ?? effectiveDataset.rowCount}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-txt-dim block">Date Range Covered</span>
+                    <span className="font-mono text-xs font-semibold text-txt">
+                      {effectiveDataset.dateRangeCovered?.label ?? 'Earliest available to present'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-txt-dim block">Available Features</span>
+                    <span className="font-mono text-sm font-semibold text-txt">
+                      {effectiveDataset.columnCount} columns
+                    </span>
+                  </div>
+                </div>
+
+                {/* Notes and Data Quality Warnings */}
+                {effectiveDataset.dataQualityNotes.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-ink-800 space-y-1">
+                    <span className="text-2xs font-semibold text-amber-400 flex items-center gap-1">
+                      <AlertTriangle size={12} /> Data Extraction Notes & Warnings:
+                    </span>
+                    <ul className="text-2xs text-txt-muted list-disc list-inside space-y-0.5">
+                      {effectiveDataset.dataQualityNotes.map((note, idx) => (
+                        <li key={idx}>{note}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </Card>
+
               {/* Data Table */}
               <Card className="border-ink-700 bg-ink-875">
                 <CardBody className="p-0 overflow-x-auto max-h-[460px]">
-                  {analysisResult.dataset.rows && analysisResult.dataset.rows.length > 0 ? (
+                  {effectiveDataset.rows && effectiveDataset.rows.length > 0 ? (
                     <table className="w-full text-2xs text-left">
                       <thead className="bg-ink-900 border-b border-ink-700 text-txt-dim uppercase font-semibold sticky top-0">
                         <tr>
-                          {analysisResult.dataset.columns.map((c) => (
+                          {effectiveDataset.columns.map((c) => (
                             <th key={c.name} className="py-2 px-2.5 whitespace-nowrap">
                               {c.label}
                             </th>
@@ -1230,9 +1734,9 @@ export function Intelligence() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-ink-800">
-                        {analysisResult.dataset.rows.map((row, i) => (
+                        {effectiveDataset.rows.map((row, i) => (
                           <tr key={i} className="hover:bg-ink-800/40 transition">
-                            {analysisResult.dataset.columns.map((c) => (
+                            {effectiveDataset.columns.map((c) => (
                               <td key={c.name} className="py-2 px-2.5 whitespace-nowrap font-mono text-txt-muted">
                                 {String(row[c.name] ?? '—')}
                               </td>

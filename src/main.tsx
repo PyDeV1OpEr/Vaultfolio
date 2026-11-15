@@ -9,6 +9,11 @@ import '@fontsource/inter/latin-500.css';
 import '@fontsource/inter/latin-600.css';
 import '@fontsource/inter/latin-700.css';
 import './index.css';
+import { useData } from './store/dataStore';
+
+if (typeof window !== 'undefined') {
+  (window as any).useData = useData;
+}
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

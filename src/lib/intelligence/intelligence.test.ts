@@ -13,7 +13,11 @@ import {
   clearAnalysisHistory,
   type SavedAnalysisRun,
 } from './historyStore';
-import { runAutoIntelligence } from './autoMlOrchestrator';
+import {
+  runAutoIntelligence,
+  generateCurrentDataset,
+  trainModelOnPreparedDataset,
+} from './autoMlOrchestrator';
 import { buildDemoData } from '../demo';
 import type { Asset, MarketSnapshot, ValuationRecord } from '../types';
 
@@ -392,5 +396,36 @@ describe('Vaultfolio Intelligence 2.0 — Comprehensive Test Suite', () => {
     const history = loadAnalysisHistory();
     expect(history.length).toBeGreaterThan(0);
     expect(history[0].id).toBe(result.runId);
+  });
+
+  // ── 14. Step 1: Get Current CSV Data Extraction Pipeline ────────────────
+  it('generateCurrentDataset computes total records, usable records, and historical date range', () => {
+    const { dataset, eda } = generateCurrentDataset(demoAssets, demoRecords, mockMarket, []);
+
+    expect(dataset.rowCount).toBe(demoAssets.length);
+    expect(dataset.usableRowCount).toBeGreaterThan(0);
+    expect(dataset.totalRecordsRetrieved).toBe(demoAssets.length + demoRecords.length);
+    expect(dataset.dateRangeCovered).toBeDefined();
+    expect(dataset.dateRangeCovered.earliest).toBeDefined();
+    expect(dataset.dateRangeCovered.latest).toBeDefined();
+    expect(dataset.dateRangeCovered.spanYears).toBeGreaterThan(0);
+    expect(eda.dataQuality.overallScore).toBeGreaterThan(0);
+  });
+
+  // ── 15. Step 2: Train ML Model on Prepared Dataset ───────────────────────
+  it('trainModelOnPreparedDataset trains candidate models and benchmarks metrics without data leakage', async () => {
+    const { dataset, eda } = generateCurrentDataset(demoAssets, demoRecords, mockMarket, []);
+    const trained = await trainModelOnPreparedDataset(dataset, eda, {
+      taskOverride: 'regression',
+    });
+
+    expect(trained.task).toBe('regression');
+    expect(trained.bestModel).toBeDefined();
+    expect(trained.bestModel.score).toBeGreaterThan(0);
+    expect(trained.comparison.length).toBeGreaterThan(1);
+    expect(trained.topFeatures.length).toBeGreaterThan(0);
+    // Verify no identifiers in training features
+    expect(trained.featuresUsed).not.toContain('asset_id');
+    expect(trained.featuresUsed).not.toContain('asset_name');
   });
 });

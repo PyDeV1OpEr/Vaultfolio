@@ -26,6 +26,14 @@ export interface ExtractionResult {
   datasetName: string;
   description: string;
   rowCount: number;
+  usableRowCount: number;
+  totalRecordsRetrieved: number;
+  dateRangeCovered: {
+    earliest: string;
+    latest: string;
+    spanYears: number;
+    label: string;
+  };
   columnCount: number;
   columns: ExtractedFeatureMeta[];
   numericColumns: string[];
@@ -116,6 +124,52 @@ export function extractPortfolioAssetDataset(
   for (const d of documents) {
     if (d.assetId) docsByAsset.add(d.assetId);
   }
+
+  // Scan date range and usable rows
+  let earliestDateMs = Infinity;
+  let latestDateMs = -Infinity;
+  let usableRowCount = 0;
+
+  for (const a of activeAssets) {
+    const val = Number(a.valuation?.valueLkr ?? a.purchase?.priceLkr ?? 0);
+    if (val > 0) usableRowCount++;
+
+    const checkDate = (iso?: string | null) => {
+      if (!iso) return;
+      const t = new Date(iso).getTime();
+      if (!isNaN(t) && t > 0) {
+        if (t < earliestDateMs) earliestDateMs = t;
+        if (t > latestDateMs) latestDateMs = t;
+      }
+    };
+    checkDate(a.purchase?.date);
+    checkDate(a.createdAt);
+    checkDate(a.updatedAt);
+  }
+
+  for (const r of records) {
+    if (r.recordedAt) {
+      const t = new Date(r.recordedAt).getTime();
+      if (!isNaN(t) && t > 0) {
+        if (t < earliestDateMs) earliestDateMs = t;
+        if (t > latestDateMs) latestDateMs = t;
+      }
+    }
+  }
+
+  const hasDates = earliestDateMs !== Infinity && latestDateMs !== -Infinity;
+  const earliestStr = hasDates ? new Date(earliestDateMs).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
+  const latestStr = hasDates ? new Date(latestDateMs).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
+  const spanYears = hasDates
+    ? Math.max(0.1, Math.round(((latestDateMs - earliestDateMs) / (365.25 * 86_400_000)) * 10) / 10)
+    : 0;
+
+  const dateRangeCovered = {
+    earliest: earliestStr,
+    latest: latestStr,
+    spanYears,
+    label: hasDates ? `${earliestStr} to ${latestStr} (${spanYears} yrs)` : 'Present',
+  };
 
   const columns: ExtractedFeatureMeta[] = [
     { name: 'asset_id', label: 'Asset ID', type: 'identifier', description: 'Unique asset identifier', isLeakageRisk: true },
@@ -277,6 +331,9 @@ export function extractPortfolioAssetDataset(
     datasetName: 'Portfolio_Assets_Analysis',
     description: 'Automated extract of tangible assets with physical attributes, purchase cost, valuation, and return metrics.',
     rowCount: rows.length,
+    usableRowCount,
+    totalRecordsRetrieved: activeAssets.length + records.length,
+    dateRangeCovered,
     columnCount: columns.length,
     columns,
     numericColumns,
@@ -354,6 +411,14 @@ export function extractValuationTimelineDataset(
     datasetName: 'Valuation_Timeline_Trajectory',
     description: 'Time-series historical appraisal and spot observations across all portfolio holdings.',
     rowCount: rows.length,
+    usableRowCount: rows.length,
+    totalRecordsRetrieved: records.length,
+    dateRangeCovered: {
+      earliest: new Date().toISOString().slice(0, 10),
+      latest: new Date().toISOString().slice(0, 10),
+      spanYears: 1.0,
+      label: 'All Historical Appraisals',
+    },
     columnCount: columns.length,
     columns,
     numericColumns: ['days_since_purchase', 'purchase_price_lkr', 'observed_value_lkr', 'gain_from_cost_pct'],
