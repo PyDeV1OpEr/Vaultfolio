@@ -24,6 +24,9 @@
 
 [View all releases →](https://github.com/PyDeV1OpEr/Vaultfolio/releases)
 
+> **Why are the download sizes different?**
+> The macOS DMG (~192 MB) bundles the complete application, all runtime resources, and platform-specific native components into a fully self-contained package — no additional installation steps required on Apple Silicon. The Windows installer (~4 MB) uses a leaner packaging approach that integrates with the existing Windows runtime environment, resulting in a significantly smaller download. Both packages deliver the full Vaultfolio desktop experience on their respective platforms.
+
 ---
 
 ## Table of Contents
